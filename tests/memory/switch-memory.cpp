@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
             as[i] = new cell<string>("hello");
             bs[i] = new cell_sink<string>("world");
             ss[i] = new cell_sink<cell<string>>(*as[i]);
-            os[i] = new cell<string>(switch_b(*ss[i]));
+            os[i] = new cell<string>(switch_c(*ss[i]));
             os[i]->updates().listen([] (const string& s) {
                 //printf("%s\n", s.c_str());
             });

@@ -2024,35 +2024,38 @@ namespace sodium {
     }
 
     // New type names:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     template <class A>
     struct event : stream<A> {
         event() {}
         event(const stream<A>& other) : stream<A>(other) {}
-    };
+    } __attribute__ ((deprecated));
     template <class A>
     struct event_sink : stream_sink<A> {
         event_sink() {}
         event_sink(const std::function<A(const A&, const A&)>& f) : stream_sink<A>(f) {}
         event_sink(const stream_sink<A>& other) : stream_sink<A>(other) {}
-    };
+    } __attribute__ ((deprecated));
     template <class A>
     struct event_loop : stream_loop<A> {
         event_loop() {}
         event_loop(const stream_loop<A>& other) : event_loop<A>(other) {}
-    };
+    } __attribute__ ((deprecated));
     template <class A>
     struct behavior : cell<A> {
         behavior(const A& initValue) : cell<A>(initValue) {}
         behavior(const cell<A>& other) : cell<A>(other) {}
-    };
+    } __attribute__ ((deprecated));
     template <class A>
     struct behavior_sink : cell_sink<A> {
         behavior_sink(const A& initValue) : cell_sink<A>(initValue) {}
-    };
+    } __attribute__ ((deprecated));
     template <class A>
     struct behavior_loop : cell_loop<A> {
         behavior_loop() {}
-    };
+    } __attribute__ ((deprecated));
+#pragma GCC diagnostic pop
 }  // end namespace sodium
 #endif
 
