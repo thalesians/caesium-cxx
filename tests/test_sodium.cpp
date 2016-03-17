@@ -72,7 +72,7 @@ void test_sodium::merge_non_simultaneous()
     event_sink<int> e1;
     event_sink<int> e2;
     std::shared_ptr<vector<int> > out = std::make_shared<vector<int> >();
-    auto unlisten = e1.merge(e2).listen([out] (const int& x) { out->push_back(x); });
+    auto unlisten = e2.or_else(e1).listen([out] (const int& x) { out->push_back(x); });
     e1.send(7);
     e2.send(9);
     e1.send(8);

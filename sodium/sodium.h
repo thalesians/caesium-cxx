@@ -888,9 +888,28 @@ namespace sodium {
              * the event from <em>this</em> will be dropped.
              * If you want to specify your own combining function, use {@link Stream#merge(Stream, Lambda2)}.
              * merge(s) is equivalent to merge(s, (l, r) -&gt; r).
+             *
+             * DEPRECATED: Please replace a.merge(b) with b.or_else(a) - NOTE THE SWAPPED ARGUMENTS.
              */
-            event<A> merge(const event<A>& s) const {
+            event<A> merge(const event<A>& s) const __attribute__ ((deprecated)) {
                 return merge(s, [] (const A& l, const A& r) { return r; });
+            }
+
+            /*!
+             * Variant of merge that merges two streams and will drop an event
+             * in the simultaneous case.
+             * <p>
+             * In the case where two events are simultaneous (i.e. both
+             * within the same transaction), the event from <em>this</em> will take precedence, and
+             * the event from <em>s</em> will be dropped.
+             * If you want to specify your own combining function, use {@link Stream#merge(Stream, Lambda2)}.
+             * s1.orElse(s2) is equivalent to s1.merge(s2, (l, r) -&gt; l).
+             * <p>
+             * The name orElse() is used instead of merge() to make it really clear that care should
+             * be taken, because events can be dropped.
+             */
+            event<A> or_else(const event<A>& s) const {
+                return merge(s, [] (const A& l, const A& r) { return l; });
             }
 
             /*!
