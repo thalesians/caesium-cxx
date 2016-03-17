@@ -14,14 +14,14 @@
 
 class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST_SUITE(test_sodium);
-    // event tests
-    CPPUNIT_TEST(event1);
+    // stream tests
+    CPPUNIT_TEST(stream1);
     CPPUNIT_TEST(map);
     CPPUNIT_TEST(merge_non_simultaneous);
     CPPUNIT_TEST(filter);
     CPPUNIT_TEST(filter_optional1);
-    CPPUNIT_TEST(loop_event1);
-    CPPUNIT_TEST(loop_event2);
+    CPPUNIT_TEST(loop_stream1);
+    CPPUNIT_TEST(loop_stream2);
     CPPUNIT_TEST(gate1);
     CPPUNIT_TEST(once1);
     CPPUNIT_TEST(collect1);
@@ -32,7 +32,7 @@ class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST(snapshot1);
     CPPUNIT_TEST(value1);
     CPPUNIT_TEST(value_const);
-    CPPUNIT_TEST(constant_behavior);
+    CPPUNIT_TEST(constant_cell);
     CPPUNIT_TEST(value_then_map);
     CPPUNIT_TEST(value_then_coalesce);
     CPPUNIT_TEST(value_then_snapshot);
@@ -49,9 +49,9 @@ class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST(lift1);
     CPPUNIT_TEST(lift_glitch);
     CPPUNIT_TEST(hold_is_delayed);
-    CPPUNIT_TEST(switch_b1);
-    CPPUNIT_TEST(switch_e1);
-    CPPUNIT_TEST(loop_behavior);
+    CPPUNIT_TEST(switch_c1);
+    CPPUNIT_TEST(switch_s1);
+    CPPUNIT_TEST(loop_cell);
     CPPUNIT_TEST(split1);
     CPPUNIT_TEST(add_cleanup1);
     CPPUNIT_TEST(add_cleanup2);
@@ -60,7 +60,7 @@ class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST(loop_value_snapshot);
     CPPUNIT_TEST(loop_value_hold);
     CPPUNIT_TEST(lift_loop);
-    CPPUNIT_TEST(loop_switch_e);
+    CPPUNIT_TEST(loop_switch_s);
     CPPUNIT_TEST(detach_sink);
     CPPUNIT_TEST(move_semantics);
     //CPPUNIT_TEST(move_semantics_sink);
@@ -71,14 +71,14 @@ class test_sodium : public CppUnit::TestFixture {
 public:
     virtual void tearDown();
 
-    void event1();
+    void stream1();
     void map();
     void merge_non_simultaneous();
     void coalesce();
     void filter();
     void filter_optional1();
-    void loop_event1();
-    void loop_event2();
+    void loop_stream1();
+    void loop_stream2();
     void gate1();
     void once1();
     void collect1();
@@ -88,7 +88,7 @@ public:
     void snapshot1();
     void value1();
     void value_const();
-    void constant_behavior();
+    void constant_cell();
     void value_then_map();
     void value_then_coalesce();
     void value_then_snapshot();
@@ -105,9 +105,9 @@ public:
     void lift1();
     void lift_glitch();
     void hold_is_delayed();
-    void switch_b1();
-    void switch_e1();
-    void loop_behavior();
+    void switch_c1();
+    void switch_s1();
+    void loop_cell();
     void split1();
     void add_cleanup1();
     void add_cleanup2();
@@ -116,7 +116,7 @@ public:
     void loop_value_snapshot();
     void loop_value_hold();
     void lift_loop();
-    void loop_switch_e();
+    void loop_switch_s();
     void detach_sink();
     void move_semantics();
     //void move_semantics_sink();

@@ -17,18 +17,18 @@ using namespace std;
 int main(int argc, char* argv[])
 {
     #define N 100
-    behavior<string>* as[N];
-    behavior_sink<string>* bs[N];
-    behavior_sink<behavior<string>>* ss[N];
-    behavior<string>* os[N];
+    cell<string>* as[N];
+    cell_sink<string>* bs[N];
+    cell_sink<cell<string>>* ss[N];
+    cell<string>* os[N];
     std::function<void()> unlistens[N];
     {
         transaction t;
         for (int i = 0; i < N; i++) {
-            as[i] = new behavior<string>("hello");
-            bs[i] = new behavior_sink<string>("world");
-            ss[i] = new behavior_sink<behavior<string>>(*as[i]);
-            os[i] = new behavior<string>(switch_b(*ss[i]));
+            as[i] = new cell<string>("hello");
+            bs[i] = new cell_sink<string>("world");
+            ss[i] = new cell_sink<cell<string>>(*as[i]);
+            os[i] = new cell<string>(switch_b(*ss[i]));
             os[i]->updates().listen([] (const string& s) {
                 //printf("%s\n", s.c_str());
             });

@@ -17,15 +17,15 @@ namespace sodium {
         struct large_count_set {
             large_count_set(
                     unsigned strong_count_,
-                    unsigned event_count_,
+                    unsigned stream_count_,
                     unsigned node_count_
                 ) : strong_count(strong_count_),
-                    event_count(event_count_),
+                    stream_count(stream_count_),
                     node_count(node_count_)
             {
             }
             unsigned strong_count;
-            unsigned event_count;
+            unsigned stream_count;
             unsigned node_count;
         };
 
@@ -33,12 +33,12 @@ namespace sodium {
         struct small_count_set {
             unsigned is_small:1;
             unsigned strong_count:SODIUM_STRONG_BITS;
-            unsigned event_count:SODIUM_EVENT_BITS;
+            unsigned stream_count:SODIUM_STREAM_BITS;
             unsigned node_count:SODIUM_NODE_BITS;
         };
         
         #define SODIUM_STRONG_MAX ((1u << SODIUM_STRONG_BITS) - 1u)
-        #define SODIUM_EVENT_MAX  ((1u << SODIUM_EVENT_BITS) - 1u)
+        #define SODIUM_STREAM_MAX  ((1u << SODIUM_STREAM_BITS) - 1u)
         #define SODIUM_NODE_MAX   ((1u << SODIUM_NODE_BITS) - 1u)
 
         union count_set_impl {
@@ -62,7 +62,7 @@ namespace sodium {
 #if defined(SODIUM_CONSERVE_MEMORY)
                 count_set_impl impl;
                 void to_large() {
-                    impl.large = new large_count_set(impl.small.strong_count, impl.small.event_count, impl.small.node_count);
+                    impl.large = new large_count_set(impl.small.strong_count, impl.small.stream_count, impl.small.node_count);
                     assert(!impl.small.is_small);
                 }
 #else
@@ -72,7 +72,7 @@ namespace sodium {
 #if defined(SODIUM_CONSERVE_MEMORY)
                 count_set() {
                     impl.small.strong_count = 0;
-                    impl.small.event_count = 0;
+                    impl.small.stream_count = 0;
                     impl.small.node_count = 0;
                     impl.small.is_small = 1;
                 }
@@ -87,18 +87,18 @@ namespace sodium {
                 }
                 bool active() const {
 #if defined(SODIUM_CONSERVE_MEMORY)
-                    return impl.small.is_small ? impl.small.strong_count || (impl.small.node_count && impl.small.event_count) :
-                                               impl.large->strong_count || (impl.large->node_count && impl.large->event_count);
+                    return impl.small.is_small ? impl.small.strong_count || (impl.small.node_count && impl.small.stream_count) :
+                                               impl.large->strong_count || (impl.large->node_count && impl.large->stream_count);
 #else
-                    return impl.strong_count || (impl.node_count && impl.event_count);
+                    return impl.strong_count || (impl.node_count && impl.stream_count);
 #endif
                 }
                 bool alive() const {
 #if defined(SODIUM_CONSERVE_MEMORY)
-                    return impl.small.is_small ? impl.small.strong_count || impl.small.node_count || impl.small.event_count
-                                         : impl.large->strong_count || impl.large->node_count || impl.large->event_count;
+                    return impl.small.is_small ? impl.small.strong_count || impl.small.node_count || impl.small.stream_count
+                                         : impl.large->strong_count || impl.large->node_count || impl.large->stream_count;
 #else
-                    return impl.strong_count || impl.node_count || impl.event_count;
+                    return impl.strong_count || impl.node_count || impl.stream_count;
 #endif
                 }
                 void inc_strong() {
@@ -126,29 +126,29 @@ namespace sodium {
                     impl.strong_count--;
 #endif
                 }
-                void inc_event() {
+                void inc_stream() {
 #if defined(SODIUM_CONSERVE_MEMORY)
                     if (impl.small.is_small) {
-                        if (impl.small.event_count == SODIUM_EVENT_MAX)
+                        if (impl.small.stream_count == SODIUM_STREAM_MAX)
                             to_large();
                         else {
-                            impl.small.event_count++;
+                            impl.small.stream_count++;
                             return;
                         }
                     }
-                    impl.large->event_count++;
+                    impl.large->stream_count++;
 #else
-                    impl.event_count++;
+                    impl.stream_count++;
 #endif
                 }
-                void dec_event() {
+                void dec_stream() {
 #if defined(SODIUM_CONSERVE_MEMORY)
                     if (impl.small.is_small)
-                        impl.small.event_count--;
+                        impl.small.stream_count--;
                     else
-                        impl.large->event_count--;
+                        impl.large->stream_count--;
 #else
-                    impl.event_count--;
+                    impl.stream_count--;
 #endif
                 }
                 void inc_node() {

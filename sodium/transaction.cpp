@@ -13,17 +13,17 @@ namespace sodium {
 
     namespace impl {
         
-        void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_EVENT>* p)
+        void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_STREAM>* p)
         {
             spin_lock* l = spin_get_and_lock(p);
-            p->counts.inc_event();
+            p->counts.inc_stream();
             l->unlock();
         }
 
-        void intrusive_ptr_release(sodium::impl::listen_impl_func<sodium::impl::H_EVENT>* p)
+        void intrusive_ptr_release(sodium::impl::listen_impl_func<sodium::impl::H_STREAM>* p)
         {
             spin_lock* l = spin_get_and_lock(p);
-            p->counts.dec_event();
+            p->counts.dec_stream();
             p->update_and_unlock(l);
         }
 
@@ -167,8 +167,8 @@ namespace sodium {
             for (SODIUM_FORWARD_LIST<node::target>::iterator it = targets.begin(); it != targets.end(); it++) {
                 SODIUM_SHARED_PTR<node> targ = it->n;
                 if (targ) {
-                    boost::intrusive_ptr<listen_impl_func<H_EVENT> > li(
-                        reinterpret_cast<listen_impl_func<H_EVENT>*>(listen_impl.get()));
+                    boost::intrusive_ptr<listen_impl_func<H_STREAM> > li(
+                        reinterpret_cast<listen_impl_func<H_STREAM>*>(listen_impl.get()));
                     targ->sources.remove(li);
                 }
             }
@@ -180,8 +180,8 @@ namespace sodium {
             if (targ) {
                 std::set<node*> visited;
                 changed = targ->ensure_bigger_than(visited, rank);
-                boost::intrusive_ptr<listen_impl_func<H_EVENT> > li(
-                    reinterpret_cast<listen_impl_func<H_EVENT>*>(listen_impl.get()));
+                boost::intrusive_ptr<listen_impl_func<H_STREAM> > li(
+                    reinterpret_cast<listen_impl_func<H_STREAM>*>(listen_impl.get()));
                 targ->sources.push_front(li);
             }
             else
@@ -210,8 +210,8 @@ namespace sodium {
                     targets.erase_after(last_it);
 #endif
                     if (targ) {
-                        boost::intrusive_ptr<listen_impl_func<H_EVENT> > li(
-                            reinterpret_cast<listen_impl_func<H_EVENT>*>(listen_impl.get()));
+                        boost::intrusive_ptr<listen_impl_func<H_STREAM> > li(
+                            reinterpret_cast<listen_impl_func<H_STREAM>*>(listen_impl.get()));
                         targ->sources.remove(li);
                     }
                     break;

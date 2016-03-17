@@ -258,12 +258,12 @@ namespace sodium {
 #endif
         };
 
-        struct H_EVENT {};
+        struct H_STREAM {};
         struct H_STRONG {};
         struct H_NODE {};
 
-        void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_EVENT>* p);
-        void intrusive_ptr_release(sodium::impl::listen_impl_func<sodium::impl::H_EVENT>* p);
+        void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_STREAM>* p);
+        void intrusive_ptr_release(sodium::impl::listen_impl_func<sodium::impl::H_STREAM>* p);
         void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_STRONG>* p);
         void intrusive_ptr_release(sodium::impl::listen_impl_func<sodium::impl::H_STRONG>* p);
         void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_NODE>* p);
@@ -273,7 +273,7 @@ namespace sodium {
             return li && li->func != NULL;
         }
 
-        inline bool alive(const boost::intrusive_ptr<listen_impl_func<H_EVENT> >& li) {
+        inline bool alive(const boost::intrusive_ptr<listen_impl_func<H_STREAM> >& li) {
             return li && li->func != NULL;
         }
 
@@ -299,7 +299,7 @@ namespace sodium {
                 rank_t rank;
                 SODIUM_FORWARD_LIST<node::target> targets;
                 SODIUM_FORWARD_LIST<light_ptr> firings;
-                SODIUM_FORWARD_LIST<boost::intrusive_ptr<listen_impl_func<H_EVENT> > > sources;
+                SODIUM_FORWARD_LIST<boost::intrusive_ptr<listen_impl_func<H_STREAM> > > sources;
                 boost::intrusive_ptr<listen_impl_func<H_NODE> > listen_impl;
 
                 bool link(void* holder, const SODIUM_SHARED_PTR<node>& target);

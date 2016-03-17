@@ -26,9 +26,9 @@ void test_sodium::tearDown()
 #endif
 }
 
-void test_sodium::event1()
+void test_sodium::stream1()
 {
-    event_sink<int> ev;
+    stream_sink<int> ev;
     std::shared_ptr<string> out = std::make_shared<string>();
     ev.send('?');
     function<void()> unlisten;
@@ -53,7 +53,7 @@ void test_sodium::event1()
 
 void test_sodium::map()
 {
-    event_sink<int> e;
+    stream_sink<int> e;
     auto m = e.map<string>([] (const int& x) {
         char buf[128];
         sprintf(buf, "%d", x);
@@ -69,8 +69,8 @@ void test_sodium::map()
 
 void test_sodium::merge_non_simultaneous()
 {
-    event_sink<int> e1;
-    event_sink<int> e2;
+    stream_sink<int> e1;
+    stream_sink<int> e2;
     std::shared_ptr<vector<int> > out = std::make_shared<vector<int> >();
     auto unlisten = e2.or_else(e1).listen([out] (const int& x) { out->push_back(x); });
     e1.send(7);
@@ -84,10 +84,10 @@ void test_sodium::merge_non_simultaneous()
 #if 0
 void test_sodium::merge_left_bias()
 {
-    event_sink<string> e1;
-    event_sink<string> e2;
+    stream_sink<string> e1;
+    stream_sink<string> e2;
     std::shared_ptr<vector<string> > out = std::make_shared<vector<string> >();
-    event<string> e = e1.merge(e2);
+    stream<string> e = e1.merge(e2);
     auto unlisten = e.listen([out] (const string& x) { out->push_back(x); });
     {
         transaction trans;
@@ -115,10 +115,10 @@ void test_sodium::merge_left_bias()
 
 #if 0
 void test_sodium::merge_left_bias_2_common(   
-    event_sink<string> e1,
-    event_sink<string> e2,
-    event_sink<string> e3,
-    event<string> e,
+    stream_sink<string> e1,
+    stream_sink<string> e2,
+    stream_sink<string> e3,
+    stream<string> e,
     std::shared_ptr<vector<string> > out
 )
 {
@@ -175,10 +175,10 @@ void test_sodium::merge_left_bias_2_common(
 void test_sodium::merge_left_bias_2a()
 {
     std::shared_ptr<vector<string> > out = std::make_shared<vector<string> >();
-    event_sink<string> e1;
-    event_sink<string> e2;
-    event_sink<string> e3;
-    event<string> e = e1.merge(e2.merge(e3));
+    stream_sink<string> e1;
+    stream_sink<string> e2;
+    stream_sink<string> e3;
+    stream<string> e = e1.merge(e2.merge(e3));
     merge_left_bias_2_common(e1, e2, e3, e, out);
 }
 #endif
@@ -187,10 +187,10 @@ void test_sodium::merge_left_bias_2a()
 void test_sodium::merge_left_bias_2b()
 {
     std::shared_ptr<vector<string> > out = std::make_shared<vector<string> >();
-    event_sink<string> e1;
-    event_sink<string> e2;
-    event_sink<string> e3;
-    event<string> e = e1.merge(e2).merge(e3);
+    stream_sink<string> e1;
+    stream_sink<string> e2;
+    stream_sink<string> e3;
+    stream<string> e = e1.merge(e2).merge(e3);
     merge_left_bias_2_common(e1, e2, e3, e, out);
 }
 #endif
@@ -198,7 +198,7 @@ void test_sodium::merge_left_bias_2b()
 #if 0
 void test_sodium::merge_simultaneous()
 {
-    event_sink<int> e;
+    stream_sink<int> e;
     auto out = std::make_shared<vector<int>>();
     auto unlisten = e.merge(e).listen([out] (const int& x) { out->push_back(x); });
     e.send(7);
@@ -212,8 +212,8 @@ void test_sodium::merge_simultaneous()
 #if 0
 void test_sodium::coalesce()
 {
-    event_sink<int> e1;
-    event_sink<int> e2;
+    stream_sink<int> e1;
+    stream_sink<int> e2;
     auto out = std::make_shared<vector<int>>();
     auto unlisten = e1.merge(e1.map<int>([] (const int& x) -> int { return x * 100; }).merge(e2))
                       .coalesce([] (const int& a, const int& b) -> int { return a+b; })
@@ -229,7 +229,7 @@ void test_sodium::coalesce()
 
 void test_sodium::filter()
 {
-    event_sink<char> e;
+    stream_sink<char> e;
     auto out = std::make_shared<string>();
     auto unlisten = e.filter([] (const char& c) { return isupper(c); })
                      .listen([out] (const char& c) { (*out) += c; });
@@ -242,7 +242,7 @@ void test_sodium::filter()
 
 void test_sodium::filter_optional1()
 {
-    event_sink<boost::optional<string>> e;
+    stream_sink<boost::optional<string>> e;
     auto out = std::make_shared<vector<string>>();
     auto unlisten = filter_optional(e).listen([out] (const string& s) {
         out->push_back(s);
@@ -255,11 +255,11 @@ void test_sodium::filter_optional1()
 }
 
 // Sodium v2 now fixes the memory leak in this code.  
-void test_sodium::loop_event1()
+void test_sodium::loop_stream1()
 {
-    event_sink<int> ea;
+    stream_sink<int> ea;
     transaction trans;
-    event_loop<int> eb;
+    stream_loop<int> eb;
     eb.loop(ea);
     trans.close();
     auto out = std::make_shared<vector<int>>();
@@ -271,13 +271,13 @@ void test_sodium::loop_event1()
 }
 
 // Sodium v2 now fixes the memory leak in this code.  
-void test_sodium::loop_event2()
+void test_sodium::loop_stream2()
 {
-    event_sink<int> ea;
-    event<int> ec;
+    stream_sink<int> ea;
+    stream<int> ec;
     {
         transaction trans;
-        event_loop<int> eb;
+        stream_loop<int> eb;
         ec = ea.map<int>([] (const int& x) { return x % 10; })
                     .merge(eb, [] (const int& x, const int& y) { return x+y; });
         auto eb_out = ea.map<int>([] (const int& x) { return x / 10; })
@@ -294,8 +294,8 @@ void test_sodium::loop_event2()
 
 void test_sodium::gate1()
 {
-    event_sink<char> ec;
-    behavior_sink<bool> pred(true);
+    stream_sink<char> ec;
+    cell_sink<bool> pred(true);
     auto out = std::make_shared<string>();
     auto unlisten = ec.gate(pred).listen([out] (const char& c) { *out += c; });
     ec.send('H');
@@ -309,7 +309,7 @@ void test_sodium::gate1()
 
 void test_sodium::once1()
 {
-    event_sink<char> e;
+    stream_sink<char> e;
     auto out = std::make_shared<string>();
     auto unlisten = e.once().listen([out] (const char& c) { *out += c; });
     e.send('A');
@@ -321,8 +321,8 @@ void test_sodium::once1()
 
 void test_sodium::hold1()
 {
-    event_sink<int> e;
-    behavior<int> b = e.hold(0);
+    stream_sink<int> e;
+    cell<int> b = e.hold(0);
     auto out = std::make_shared<vector<int>>();
     auto unlisten = b.updates().listen([out] (const int& x) { out->push_back(x); });
     e.send(2);
@@ -333,10 +333,10 @@ void test_sodium::hold1()
 
 void test_sodium::snapshot1()
 {
-    behavior_sink<int> b(0);
+    cell_sink<int> b(0);
     b.send(2);  /* ### */
     /*
-    event_sink<long> trigger;
+    stream_sink<long> trigger;
     auto out = std::make_shared<vector<string>>();
     auto unlisten = trigger.snapshot<int,string>(b, [out] (const long& x, const int& y) -> string {
         char buf[129];
@@ -358,7 +358,7 @@ void test_sodium::snapshot1()
 
 void test_sodium::value1()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     transaction trans;
     auto out = std::make_shared<vector<int>>();
     auto unlisten = b.value().listen([out] (const int& x) { out->push_back(x); });
@@ -371,7 +371,7 @@ void test_sodium::value1()
 
 void test_sodium::value_const()
 {
-    behavior<int> b(9);
+    cell<int> b(9);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = b.value().listen([out] (const int& x) { out->push_back(x); });
@@ -380,9 +380,9 @@ void test_sodium::value_const()
     CPPUNIT_ASSERT(vector<int>({ 9 }) == *out);
 }
 
-void test_sodium::constant_behavior()
+void test_sodium::constant_cell()
 {
-    behavior_sink<int> b(12);
+    cell_sink<int> b(12);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = b.value().listen([out] (const int& x) { out->push_back(x); });
@@ -393,7 +393,7 @@ void test_sodium::constant_behavior()
 
 void test_sodium::value_then_map()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = b.value().map<int>([] (const int& x) { return x + 100; })
@@ -407,12 +407,12 @@ void test_sodium::value_then_map()
 
 /*
  * This is used for tests where value() produces a single initial value on listen,
- * and then we double that up by causing that single initial event to be repeated.
+ * and then we double that up by causing that single initial stream to be repeated.
  * This needs testing separately, because the code must be done carefully to achieve
  * this.
  */
 template <class A>
-event<A> doubleUp(const event<A>& ea)
+stream<A> doubleUp(const stream<A>& ea)
 {
     return ea.merge(ea);
 }
@@ -420,7 +420,7 @@ event<A> doubleUp(const event<A>& ea)
 #if 0
 void test_sodium::value_twice_then_map()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = doubleUp<int>(b.value()).map<int>([] (const int& x) { return x + 100; })
@@ -435,7 +435,7 @@ void test_sodium::value_twice_then_map()
 
 void test_sodium::value_then_coalesce()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = b.value().coalesce([] (const int& fst, const int& snd) -> int { return snd; })
@@ -450,7 +450,7 @@ void test_sodium::value_then_coalesce()
 #if 0
 void test_sodium::value_twice_then_coalesce()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = doubleUp(b.value()).coalesce([] (const int& fst, const int& snd) -> int { return fst + snd; })
@@ -465,8 +465,8 @@ void test_sodium::value_twice_then_coalesce()
 
 void test_sodium::value_then_snapshot()
 {
-    behavior_sink<int> bi(9);
-    behavior_sink<char> bc('a');
+    cell_sink<int> bi(9);
+    cell_sink<char> bc('a');
     auto out = std::make_shared<string>();
     transaction trans;
     auto unlisten = bi.value().snapshot(bc).listen([out] (const char& c) { *out += c; });
@@ -482,8 +482,8 @@ void test_sodium::value_then_snapshot()
 #if 0
 void test_sodium::value_twice_then_snapshot()
 {
-    behavior_sink<int> bi(9);
-    behavior_sink<char> bc('a');
+    cell_sink<int> bi(9);
+    cell_sink<char> bc('a');
     auto out = std::make_shared<string>();
     transaction trans;
     auto unlisten = doubleUp(bi.value()).snapshot(bc).listen([out] (const char& c) { *out += c; });
@@ -499,8 +499,8 @@ void test_sodium::value_twice_then_snapshot()
 
 void test_sodium::value_then_merge()
 {
-    behavior_sink<int> bi(9);
-    behavior_sink<int> bj(2);
+    cell_sink<int> bi(9);
+    cell_sink<int> bj(2);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = bi.value().merge(bj.value(), [] (const int& x, const int& y) -> int { return x+y; })
@@ -514,7 +514,7 @@ void test_sodium::value_then_merge()
 
 void test_sodium::value_then_filter1()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = b.value().filter([] (const int& x) { return true; })
@@ -528,7 +528,7 @@ void test_sodium::value_then_filter1()
 
 void test_sodium::value_then_filter2a()
 {
-    behavior_sink<optional<int>> b = behavior_sink<optional<int>>(optional<int>(9));
+    cell_sink<optional<int>> b = cell_sink<optional<int>>(optional<int>(9));
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = filter_optional(b.value())
@@ -542,7 +542,7 @@ void test_sodium::value_then_filter2a()
 
 void test_sodium::value_then_filter2b()
 {
-    behavior_sink<optional<int>> b = behavior_sink<optional<int>>(optional<int>());
+    cell_sink<optional<int>> b = cell_sink<optional<int>>(optional<int>());
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = filter_optional(b.value())
@@ -557,7 +557,7 @@ void test_sodium::value_then_filter2b()
 #if 0
 void test_sodium::value_twice_then_filter()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = doubleUp(b.value()).filter([] (const int& x) { return true; })
@@ -572,7 +572,7 @@ void test_sodium::value_twice_then_filter()
 
 void test_sodium::value_then_once()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = b.value().once()
@@ -587,7 +587,7 @@ void test_sodium::value_then_once()
 #if 0
 void test_sodium::value_twice_then_once()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
     auto unlisten = doubleUp(b.value()).once()
@@ -602,7 +602,7 @@ void test_sodium::value_twice_then_once()
 
 void test_sodium::value_late_listen()
 {
-    behavior_sink<int> b(9);
+    cell_sink<int> b(9);
     b.send(8);
     auto out = std::make_shared<vector<int>>();
     transaction trans;
@@ -616,22 +616,22 @@ void test_sodium::value_late_listen()
 void test_sodium::value_then_switch()
 {
     transaction trans;
-    behavior_sink<int> b1(9);
-    behavior_sink<int> b2(11);
+    cell_sink<int> b1(9);
+    cell_sink<int> b2(11);
     auto out = std::make_shared<vector<int>>();
-    behavior_sink<event<int>> be(b1.value());
-    auto unlisten = switch_e(be).listen([out] (const int& x) { out->push_back(x); });
+    cell_sink<stream<int>> be(b1.value());
+    auto unlisten = switch_s(be).listen([out] (const int& x) { out->push_back(x); });
     trans.close();
     b1.send(10);
     // This is an odd sort of case. We want
-    // 1. value() is supposed to simulate a behavior as an event, firing the current
+    // 1. value() is supposed to simulate a cell as an stream, firing the current
     //   value once in the transaction when we listen to it.
-    // 2. when we switch to a new event in switch_e(), any firing of the new event
-    //   that happens in that transaction should be ignored, because behaviors are
+    // 2. when we switch to a new stream in switch_s(), any firing of the new stream
+    //   that happens in that transaction should be ignored, because cells are
     //   delayed. The switch should take place after the transaction.
-    // So we might think that it's sensible for switch_e() to fire out the value of
-    // the new behavior upon switching, in that same transaction. But this breaks
-    // 2., so in this case we can't maintain the "behavior as an event" fiction.
+    // So we might think that it's sensible for switch_s() to fire out the value of
+    // the new cell upon switching, in that same transaction. But this breaks
+    // 2., so in this case we can't maintain the "cell as an stream" fiction.
     be.send(b2.value());  // This does NOT fire 11 for the reasons given above.
     b2.send(12);
     unlisten();
@@ -640,7 +640,7 @@ void test_sodium::value_then_switch()
 
 void test_sodium::mapB1()
 {
-    behavior_sink<int> b(6);
+    cell_sink<int> b(6);
     auto out = std::make_shared<vector<string>>();
     transaction trans;
     auto unlisten = b.map<string>([] (const int& x) {
@@ -656,7 +656,7 @@ void test_sodium::mapB1()
 
 void test_sodium::mapB_late_listen()
 {
-    behavior_sink<int> b(6);
+    cell_sink<int> b(6);
     auto out = std::make_shared<vector<string>>();
     b.send(2);
     transaction trans;
@@ -679,10 +679,10 @@ static string fmtInt(const int& x) {
 
 void test_sodium::apply1()
 {
-    behavior_sink<function<string(const int&)>> bf([] (const int& b) {
+    cell_sink<function<string(const int&)>> bf([] (const int& b) {
         return string("1 ")+fmtInt(b);
     });
-    behavior_sink<int> ba(5);
+    cell_sink<int> ba(5);
     auto out = std::make_shared<vector<string>>();
     transaction trans;
     auto unlisten = apply<int, string>(bf, ba).value().listen([out] (const string& x) {
@@ -697,8 +697,8 @@ void test_sodium::apply1()
 
 void test_sodium::lift1()
 {
-    behavior_sink<int> a(1);
-    behavior_sink<int> b(5);
+    cell_sink<int> a(1);
+    cell_sink<int> b(5);
     auto out = std::make_shared<vector<string>>();
     transaction trans;
     auto unlisten = lift<int,int,string>([] (const int& a_, const int& b_) {
@@ -716,10 +716,10 @@ void test_sodium::lift1()
 void test_sodium::lift_glitch()
 {
     transaction trans;
-    behavior_sink<int> a(1);
-    behavior<int> a3 = a.map<int>([] (const int& x) { return x * 3; });
-    behavior<int> a5 = a.map<int>([] (const int& x) { return x * 5; });
-    behavior<string> b = lift<int,int,string>([] (const int& x, const int& y) {
+    cell_sink<int> a(1);
+    cell<int> a3 = a.map<int>([] (const int& x) { return x * 3; });
+    cell<int> a5 = a.map<int>([] (const int& x) { return x * 5; });
+    cell<string> b = lift<int,int,string>([] (const int& x, const int& y) {
         return fmtInt(x)+" "+fmtInt(y);
     }, a3, a5);
     auto out = std::make_shared<vector<string>>();
@@ -732,9 +732,9 @@ void test_sodium::lift_glitch()
 
 void test_sodium::hold_is_delayed()
 {
-    event_sink<int> e;
-    behavior<int> h = e.hold(0);
-    event<string> pair = e.snapshot<int,string>(h, [] (const int& a, const int& b) { return fmtInt(a) + " " + fmtInt(b); });
+    stream_sink<int> e;
+    cell<int> h = e.hold(0);
+    stream<string> pair = e.snapshot<int,string>(h, [] (const int& a, const int& b) { return fmtInt(a) + " " + fmtInt(b); });
     auto out = std::make_shared<vector<string>>();
     auto unlisten = pair.listen([out] (const string& s) { out->push_back(s); });
     e.send(2);
@@ -745,76 +745,76 @@ void test_sodium::hold_is_delayed()
 
 struct SB
 {
-    SB(optional<char> oa_, optional<char> ob_, optional<behavior<char>> osw_) : oa(oa_), ob(ob_), osw(osw_) {}
+    SB(optional<char> oa_, optional<char> ob_, optional<cell<char>> osw_) : oa(oa_), ob(ob_), osw(osw_) {}
     optional<char> oa;
     optional<char> ob;
-    optional<behavior<char>> osw;
+    optional<cell<char>> osw;
 };
 
-void test_sodium::switch_b1()
+void test_sodium::switch_c1()
 {
     transaction trans;
-    event_sink<SB> esb;
+    stream_sink<SB> esb;
     // Split each field out of SB so we can update multiple behaviours in a
     // single transaction.
-    behavior<char> ba = filter_optional(esb.map<optional<char>>([] (const SB& s) { return s.oa; })).hold('A');
-    behavior<char> bb = filter_optional(esb.map<optional<char>>([] (const SB& s) { return s.ob; })).hold('a');
-    behavior<behavior<char>> bsw = filter_optional(esb.map<optional<behavior<char>>>([] (const SB& s) { return s.osw; })).hold(ba);
-    behavior<char> bo = switch_b(bsw);
+    cell<char> ba = filter_optional(esb.map<optional<char>>([] (const SB& s) { return s.oa; })).hold('A');
+    cell<char> bb = filter_optional(esb.map<optional<char>>([] (const SB& s) { return s.ob; })).hold('a');
+    cell<cell<char>> bsw = filter_optional(esb.map<optional<cell<char>>>([] (const SB& s) { return s.osw; })).hold(ba);
+    cell<char> bo = switch_c(bsw);
     auto out = std::make_shared<string>();
     auto unlisten = bo.value().listen([out] (const char& c) { *out += c; });
     trans.close();
-    esb.send(SB(optional<char>('B'),optional<char>('b'),optional<behavior<char>>()));
-    esb.send(SB(optional<char>('C'),optional<char>('c'),optional<behavior<char>>(bb)));
-    esb.send(SB(optional<char>('D'),optional<char>('d'),optional<behavior<char>>()));
-    esb.send(SB(optional<char>('E'),optional<char>('e'),optional<behavior<char>>(ba)));
-    esb.send(SB(optional<char>('F'),optional<char>('f'),optional<behavior<char>>()));
-    esb.send(SB(optional<char>(),   optional<char>(),   optional<behavior<char>>(bb)));
-    esb.send(SB(optional<char>(),   optional<char>(),   optional<behavior<char>>(ba)));
-    esb.send(SB(optional<char>('G'),optional<char>('g'),optional<behavior<char>>(bb)));
-    esb.send(SB(optional<char>('H'),optional<char>('h'),optional<behavior<char>>(ba)));
-    esb.send(SB(optional<char>('I'),optional<char>('i'),optional<behavior<char>>(ba)));
+    esb.send(SB(optional<char>('B'),optional<char>('b'),optional<cell<char>>()));
+    esb.send(SB(optional<char>('C'),optional<char>('c'),optional<cell<char>>(bb)));
+    esb.send(SB(optional<char>('D'),optional<char>('d'),optional<cell<char>>()));
+    esb.send(SB(optional<char>('E'),optional<char>('e'),optional<cell<char>>(ba)));
+    esb.send(SB(optional<char>('F'),optional<char>('f'),optional<cell<char>>()));
+    esb.send(SB(optional<char>(),   optional<char>(),   optional<cell<char>>(bb)));
+    esb.send(SB(optional<char>(),   optional<char>(),   optional<cell<char>>(ba)));
+    esb.send(SB(optional<char>('G'),optional<char>('g'),optional<cell<char>>(bb)));
+    esb.send(SB(optional<char>('H'),optional<char>('h'),optional<cell<char>>(ba)));
+    esb.send(SB(optional<char>('I'),optional<char>('i'),optional<cell<char>>(ba)));
     unlisten();
     CPPUNIT_ASSERT_EQUAL(string("ABcdEFfFgHI"), *out);
 }
 
 struct SE
 {
-    SE(optional<char> oa_, optional<char> ob_, optional<event<char>> osw_) : oa(oa_), ob(ob_), osw(osw_) {}
+    SE(optional<char> oa_, optional<char> ob_, optional<stream<char>> osw_) : oa(oa_), ob(ob_), osw(osw_) {}
     optional<char> oa;
     optional<char> ob;
-    optional<event<char>> osw;
+    optional<stream<char>> osw;
 };
 
-void test_sodium::switch_e1()
+void test_sodium::switch_s1()
 {
-    event_sink<SE> ese;
-    event<char> ea = filter_optional(ese.map<optional<char>>([] (const SE& s) { return s.oa; }));
-    event<char> eb = filter_optional(ese.map<optional<char>>([] (const SE& s) { return s.ob; }));
-    behavior<event<char>> bsw = filter_optional(ese.map<optional<event<char>>>([] (const SE& s) { return s.osw; }))
+    stream_sink<SE> ese;
+    stream<char> ea = filter_optional(ese.map<optional<char>>([] (const SE& s) { return s.oa; }));
+    stream<char> eb = filter_optional(ese.map<optional<char>>([] (const SE& s) { return s.ob; }));
+    cell<stream<char>> bsw = filter_optional(ese.map<optional<stream<char>>>([] (const SE& s) { return s.osw; }))
         .hold(ea);
-    event<char> eo = switch_e(bsw);
+    stream<char> eo = switch_s(bsw);
     auto out = std::make_shared<string>();
     auto unlisten = eo.listen([out] (const char& c) { *out += c; });
-    ese.send(SE(optional<char>('A'),optional<char>('a'),optional<event<char>>()));
-    ese.send(SE(optional<char>('B'),optional<char>('b'),optional<event<char>>()));
-    ese.send(SE(optional<char>('C'),optional<char>('c'),optional<event<char>>(eb)));
-    ese.send(SE(optional<char>('D'),optional<char>('d'),optional<event<char>>()));
-    ese.send(SE(optional<char>('E'),optional<char>('e'),optional<event<char>>(ea)));
-    ese.send(SE(optional<char>('F'),optional<char>('f'),optional<event<char>>()));
-    ese.send(SE(optional<char>('G'),optional<char>('g'),optional<event<char>>(eb)));
-    ese.send(SE(optional<char>('H'),optional<char>('h'),optional<event<char>>(ea)));
-    ese.send(SE(optional<char>('I'),optional<char>('i'),optional<event<char>>(ea)));
+    ese.send(SE(optional<char>('A'),optional<char>('a'),optional<stream<char>>()));
+    ese.send(SE(optional<char>('B'),optional<char>('b'),optional<stream<char>>()));
+    ese.send(SE(optional<char>('C'),optional<char>('c'),optional<stream<char>>(eb)));
+    ese.send(SE(optional<char>('D'),optional<char>('d'),optional<stream<char>>()));
+    ese.send(SE(optional<char>('E'),optional<char>('e'),optional<stream<char>>(ea)));
+    ese.send(SE(optional<char>('F'),optional<char>('f'),optional<stream<char>>()));
+    ese.send(SE(optional<char>('G'),optional<char>('g'),optional<stream<char>>(eb)));
+    ese.send(SE(optional<char>('H'),optional<char>('h'),optional<stream<char>>(ea)));
+    ese.send(SE(optional<char>('I'),optional<char>('i'),optional<stream<char>>(ea)));
     unlisten();
     CPPUNIT_ASSERT_EQUAL(string("ABCdeFGhI"), *out);
 }
 
 // NOTE! Currently this leaks memory.
-void test_sodium::loop_behavior()
+void test_sodium::loop_cell()
 {
-    event_sink<int> ea;
+    stream_sink<int> ea;
     transaction trans;
-    behavior_loop<int> sum;
+    cell_loop<int> sum;
     sum.loop(ea.snapshot<int,int>(sum, [] (const int& x, const int& y) { return x+y; }).hold(0));
     auto out = std::make_shared<vector<int>>();
     auto unlisten = sum.value().listen([out] (const int& x) { out->push_back(x); });
@@ -830,9 +830,9 @@ void test_sodium::loop_behavior()
 
 void test_sodium::collect1()
 {
-    event_sink<int> ea;
+    stream_sink<int> ea;
     auto out = std::make_shared<vector<int>>();
-    event<int> sum = ea.collect<int, int>(100, [] (const int& a, const int& s) {
+    stream<int> sum = ea.collect<int, int>(100, [] (const int& a, const int& s) {
         return tuple<int, int>(a+s, a+s);
     });
     auto unlisten = sum.listen([out] (const int& x) { out->push_back(x); });
@@ -847,10 +847,10 @@ void test_sodium::collect1()
 
 void test_sodium::collect2()
 {
-    event_sink<int> ea;
+    stream_sink<int> ea;
     auto out = std::make_shared<vector<int>>();
     transaction trans;
-    behavior<int> sum = ea.hold(100).collect<int, int>(0, [] (const int& a, const int& s) {
+    cell<int> sum = ea.hold(100).collect<int, int>(0, [] (const int& a, const int& s) {
         return tuple<int, int>(a+s, a+s);
     });
     auto unlisten = sum.value().listen([out] (const int& x) { out->push_back(x); });
@@ -866,9 +866,9 @@ void test_sodium::collect2()
 
 void test_sodium::accum1()
 {
-    event_sink<int> ea;
+    stream_sink<int> ea;
     auto out = std::make_shared<vector<int>>();
-    behavior<int> sum = ea.accum<int>(100, [] (const int& a, const int& s) -> int {
+    cell<int> sum = ea.accum<int>(100, [] (const int& a, const int& s) -> int {
         return a+s;
     });
     auto unlisten = sum.updates().listen([out] (const int& x) { out->push_back(x); });
@@ -883,9 +883,9 @@ void test_sodium::accum1()
 
 void test_sodium::split1()
 {
-    event_sink<string> ea;
+    stream_sink<string> ea;
     auto out = std::make_shared<vector<string>>();
-    event<string> eo = split(ea.map<list<string>>([] (const string& text0) -> list<string> {
+    stream<string> eo = split(ea.map<list<string>>([] (const string& text0) -> list<string> {
         size_t p;
         string text = text0;
         list<string> tokens;
@@ -913,10 +913,10 @@ void test_sodium::add_cleanup1()
 {
     auto out = std::make_shared<vector<string>>();
     {
-        event_sink<string> ea;
+        stream_sink<string> ea;
         std::function<void()> unlisten;
         {
-            event<string> eb = ea.map<string>([] (const string& x) { return x + "!"; })
+            stream<string> eb = ea.map<string>([] (const string& x) { return x + "!"; })
                                  .add_cleanup([out] {out->push_back("<cleanup>");});
             unlisten = eb.listen([out] (const string& x) { out->push_back(x); });
             ea.send("custard apple");
@@ -937,10 +937,10 @@ void test_sodium::add_cleanup2()
 {
     auto out = std::make_shared<vector<string>>();
     {
-        event_sink<string> ea;
+        stream_sink<string> ea;
         std::function<void()> unlisten;
         {
-            event<string> eb = ea.filter([] (const string& x) { return x != "ignore"; })
+            stream<string> eb = ea.filter([] (const string& x) { return x != "ignore"; })
                                  .add_cleanup([out] {out->push_back("<cleanup>");});
             unlisten = eb.listen([out] (const string& x) { out->push_back(x); });
             ea.send("custard apple");
@@ -962,7 +962,7 @@ void test_sodium::constant_value()
 {
     auto out = std::make_shared<vector<string>>();
     transaction trans; 
-    behavior<string> a("cheese");
+    cell<string> a("cheese");
     auto eValue = a.value();
     eValue.listen([out] (const string& x) { out->push_back(x); });
     trans.close();
@@ -973,9 +973,9 @@ void test_sodium::loop_value()
 {
     auto out = std::make_shared<vector<string>>();
     transaction trans; 
-    behavior_loop<string> a;
+    cell_loop<string> a;
     auto eValue = a.value();
-    a.loop(behavior<string>("cheese"));
+    a.loop(cell<string>("cheese"));
     eValue.listen([out] (const string& x) { out->push_back(x); });
     trans.close();
     CPPUNIT_ASSERT(vector<string>({ string("cheese") }) == *out);
@@ -984,13 +984,13 @@ void test_sodium::loop_value()
 void test_sodium::loop_value_snapshot()
 {
     auto out = std::make_shared<vector<string>>();
-    behavior<string> a("lettuce");
+    cell<string> a("lettuce");
     transaction trans; 
-    behavior_loop<string> b;
+    cell_loop<string> b;
     auto eSnap = a.value().snapshot<string,string>(b, [] (const string& a_, const string& b_) {
         return a_ + " " + b_;
     });
-    b.loop(behavior<string>("cheese"));
+    b.loop(cell<string>("cheese"));
     auto unlisten = eSnap.listen([out] (const string& x) { out->push_back(x); });
     trans.close();
     unlisten();
@@ -1001,10 +1001,10 @@ void test_sodium::loop_value_hold()
 {
     auto out = std::make_shared<vector<string>>();
     transaction trans; 
-    behavior_loop<string> a;
-    behavior<string> value = a.value().hold("onion");
-    event_sink<unit> eTick;
-    a.loop(behavior<string>("cheese"));
+    cell_loop<string> a;
+    cell<string> value = a.value().hold("onion");
+    stream_sink<unit> eTick;
+    a.loop(cell<string>("cheese"));
     trans.close();
     auto unlisten = eTick.snapshot(value).listen([out] (const string& x) { out->push_back(x); });
     eTick.send(unit());
@@ -1016,31 +1016,31 @@ void test_sodium::lift_loop()
 {
     auto out = std::make_shared<vector<string>>();
     transaction trans;
-    behavior_loop<string> a;
-    behavior_sink<string> b("kettle");
+    cell_loop<string> a;
+    cell_sink<string> b("kettle");
     auto c = lift<string, string, string>([] (const string& a_, const string& b_) {
         return a_+" "+b_;
     }, a, b);
-    a.loop(behavior<string>("tea"));
+    a.loop(cell<string>("tea"));
     auto unlisten = c.value().listen([out] (const string& x) { out->push_back(x); });
     trans.close();
     b.send("caddy");
     CPPUNIT_ASSERT(vector<string>({ string("tea kettle"), string("tea caddy") }) == *out);
 }
 
-void test_sodium::loop_switch_e()
+void test_sodium::loop_switch_s()
 {
     auto out = std::make_shared<vector<string>>();
     transaction trans;
-    event_sink<string> e1;
-    behavior_loop<event<string>> b_lp;
-    event<string> e = switch_e(b_lp);
+    stream_sink<string> e1;
+    cell_loop<stream<string>> b_lp;
+    stream<string> e = switch_s(b_lp);
     e1.send("banana");
     auto unlisten = e.listen([out] (const string& x) { out->push_back(x); });
-    behavior_sink<event<string>> b(e1);
+    cell_sink<stream<string>> b(e1);
     b_lp.loop(b);
     trans.close();
-    event_sink<string> e2;
+    stream_sink<string> e2;
     e2.send("pear");
     b.send(e2);
     e2.send("apple");
@@ -1049,11 +1049,11 @@ void test_sodium::loop_switch_e()
 
 void test_sodium::detach_sink()
 {
-    // Check that holding the sink doesn't prevent a cleanup added to an event
+    // Check that holding the sink doesn't prstream a cleanup added to an stream
     // from working.
-    event_sink<int>* esnk = new event_sink<int>;
+    stream_sink<int>* esnk = new stream_sink<int>;
     std::shared_ptr<bool> cleanedUp(new bool(false));
-    event<int>* e(new event<int>(esnk->add_cleanup([cleanedUp] () {
+    stream<int>* e(new stream<int>(esnk->add_cleanup([cleanedUp] () {
         *cleanedUp = true;
     })));
     CPPUNIT_ASSERT(*cleanedUp == false);
@@ -1064,7 +1064,7 @@ void test_sodium::detach_sink()
 
 void test_sodium::move_semantics()
 {
-    behavior<unique_ptr<int>> pointer(unique_ptr<int>(new int(625)));
+    cell<unique_ptr<int>> pointer(unique_ptr<int>(new int(625)));
     int v = 0;
     auto value = pointer.map<int>([&](const unique_ptr<int>& pInt) {
         return pInt ? *pInt : 0;
@@ -1075,7 +1075,7 @@ void test_sodium::move_semantics()
 #if 0  // TO DO: Reinstate
 void test_sodium::move_semantics_sink()
 {
-    behavior_sink<unique_ptr<int>> bs(unique_ptr<int>(new int(1)));
+    cell_sink<unique_ptr<int>> bs(unique_ptr<int>(new int(1)));
 
     int newValue = 0;
     bs.updates().listen([&](const unique_ptr<int>& pInt) {
@@ -1089,7 +1089,7 @@ void test_sodium::move_semantics_sink()
 
 void test_sodium::move_semantics_hold()
 {
-    event<unique_ptr<int>> e;
+    stream<unique_ptr<int>> e;
     auto b = e.hold(unique_ptr<int>(new int(345)));
     auto val = b.map<int>([](const unique_ptr<int>& pInt) {
         return pInt ? *pInt : 0;
@@ -1100,9 +1100,9 @@ void test_sodium::move_semantics_hold()
 void test_sodium::lift_from_simultaneous()
 {
     transaction trans;
-    behavior_sink<int> b1(3);
-    behavior_sink<int> b2(5);
-    behavior<int> sum = lift<int, int, int>(
+    cell_sink<int> b1(3);
+    cell_sink<int> b2(5);
+    cell<int> sum = lift<int, int, int>(
         [] (const int& a, const int& b) { return a + b; }, b1, b2);
     auto out = std::make_shared<vector<int>>();
     auto kill = sum.value().listen([out] (const int& sum_) {

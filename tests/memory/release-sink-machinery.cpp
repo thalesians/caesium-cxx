@@ -27,14 +27,14 @@ using namespace std;
 int main(int argc, char* argv[])
 {
     #define N 1000
-    behavior_sink<behavior<string>>* ss[N];
-    behavior<string>* s[N];
+    cell_sink<cell<string>>* ss[N];
+    cell<string>* s[N];
     {
         printf("constructing\n");
         transaction t;
         for (int i = 0; i < N; i++) {
-            ss[i] = new behavior_sink<behavior<string>>(behavior<string>(string()));
-            s[i] = new behavior<string>(switch_b(*ss[i]));
+            ss[i] = new cell_sink<cell<string>>(cell<string>(string()));
+            s[i] = new cell<string>(switch_c(*ss[i]));
         }
         printf("done\n");
     }
