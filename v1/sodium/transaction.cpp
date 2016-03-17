@@ -161,7 +161,7 @@ namespace sodium {
     namespace impl {
 
         node::node() : rank(0) {}
-        node::node(rank_t rank) : rank(rank) {}
+        node::node(rank_t rank_) : rank(rank_) {}
         node::~node()
         {
             for (SODIUM_FORWARD_LIST<node::target>::iterator it = targets.begin(); it != targets.end(); it++) {
@@ -241,8 +241,8 @@ namespace sodium {
                 return SODIUM_IMPL_RANK_T_MAX;
         }
 
-        transaction_impl::transaction_impl(partition* part)
-            : part(part),
+        transaction_impl::transaction_impl(partition* part_)
+            : part(part_),
               to_regen(false)
         {
         }
@@ -342,25 +342,25 @@ namespace sodium {
 
         void transaction_::close()
         {
-            impl::transaction_impl* impl_(this->impl_);
-            if (impl_) {
+            impl::transaction_impl* impl__(this->impl_);
+            if (impl__) {
                 this->impl_ = NULL;
-                partition* part = impl_->part;
+                partition* part = impl__->part;
                 if (part->depth == 1) {
                     policy::get_global()->dispatch(
-                        impl_,
+                        impl__,
 #if defined(SODIUM_NO_CXX11)
-                        new process_trans_handler(impl_),
-                        new process_post_handler(impl_)
+                        new process_trans_handler(impl__),
+                        new process_post_handler(impl__)
 #else
-                        [impl_] () {
-                            impl_->process_transactional();
-                            impl_->part->depth--;
+                        [impl__] () {
+                            impl__->process_transactional();
+                            impl__->part->depth--;
                         },
-                        [impl_] () {
-                            partition* part = impl_->part;
-                            delete impl_;
-                            part->process_post();
+                        [impl__] () {
+                            partition* part_ = impl__->part;
+                            delete impl__;
+                            part_->process_post();
                         }
 #endif
                     );

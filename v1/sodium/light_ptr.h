@@ -20,9 +20,9 @@ namespace sodium {
         typedef void (*deleter)(void*);
         struct count {
             count(
-                int c,
-                deleter del
-            ) : c(c), del(del) {}
+                int c_,
+                deleter del_
+            ) : c(c_), del(del_) {}
             int c;
             deleter del;
         };

@@ -17,8 +17,8 @@ namespace sodium {
      \
     Name Name::DUMMY; \
      \
-    Name::Name(void* value, impl::deleter del) \
-        : value(value), count(new impl::count(1, del)) \
+    Name::Name(void* value_, impl::deleter del_) \
+        : value(value_), count(new impl::count(1, del_)) \
     { \
     } \
      \

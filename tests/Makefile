@@ -5,7 +5,7 @@ all: test_sodium
 endif
 
 SRC=../v1
-CPPFLAGS=-I$(SRC) -g
+CPPFLAGS=-I$(SRC) -g -Wshadow -Werror
 ifeq ($(NO_CXX11),)
 CPPFLAGS+=--std=c++0x
 else

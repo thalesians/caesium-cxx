@@ -196,8 +196,8 @@ namespace sodium {
                 const SODIUM_SHARED_PTR<holder>&,
                 bool)> closure;
 #endif
-            listen_impl_func(closure* func)
-                : func(func) {}
+            listen_impl_func(closure* func_)
+                : func(func_) {}
             ~listen_impl_func()
             {
                 assert(cleanups.begin() == cleanups.end() && func == NULL);
@@ -240,11 +240,11 @@ namespace sodium {
             public:
                 holder(
 #if defined(SODIUM_NO_CXX11)
-                    lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, transaction_impl*, const light_ptr&>* handler
+                    lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, transaction_impl*, const light_ptr&>* handler_
 #else
-                    std::function<void(const std::shared_ptr<impl::node>&, transaction_impl*, const light_ptr&)>* handler
+                    std::function<void(const std::shared_ptr<impl::node>&, transaction_impl*, const light_ptr&)>* handler_
 #endif
-                ) : handler(handler) {}
+                ) : handler(handler_) {}
                 ~holder() {
                     delete handler;
                 }
@@ -282,10 +282,10 @@ namespace sodium {
             public:
                 struct target {
                     target(
-                        void* h,
-                        const SODIUM_SHARED_PTR<node>& n
-                    ) : h(h),
-                        n(n) {}
+                        void* h_,
+                        const SODIUM_SHARED_PTR<node>& n_
+                    ) : h(h_),
+                        n(n_) {}
 
                     void* h;
                     SODIUM_SHARED_PTR<node> n;
@@ -323,7 +323,7 @@ namespace sodium {
 
         struct entryID {
             entryID() : id(0) {}
-            entryID(rank_t id) : id(id) {}
+            entryID(rank_t id_) : id(id_) {}
             rank_t id;
             entryID succ() const { return entryID(id+1); }
             inline bool operator < (const entryID& other) const { return id < other.id; }
@@ -333,13 +333,13 @@ namespace sodium {
 
         struct prioritized_entry {
 #if defined(SODIUM_NO_CXX11)
-            prioritized_entry(const SODIUM_SHARED_PTR<node>& target,
-                              const lambda1<void, transaction_impl*>& action)
+            prioritized_entry(const SODIUM_SHARED_PTR<node>& target_,
+                              const lambda1<void, transaction_impl*>& action_)
 #else
-            prioritized_entry(const SODIUM_SHARED_PTR<node>& target,
-                              const std::function<void(transaction_impl*)>& action)
+            prioritized_entry(const SODIUM_SHARED_PTR<node>& target_,
+                              const std::function<void(transaction_impl*)>& action_)
 #endif
-                : target(target), action(action)
+                : target(target_), action(action_)
             {
             }
             SODIUM_SHARED_PTR<node> target;

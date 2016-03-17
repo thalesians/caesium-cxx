@@ -701,8 +701,8 @@ void test_sodium::lift1()
     behavior_sink<int> b(5);
     auto out = std::make_shared<vector<string>>();
     transaction trans;
-    auto unlisten = lift<int,int,string>([] (const int& a, const int& b) {
-        return fmtInt(a)+" "+fmtInt(b);
+    auto unlisten = lift<int,int,string>([] (const int& a_, const int& b_) {
+        return fmtInt(a_)+" "+fmtInt(b_);
     }, a, b).value().listen([out] (const string& x) {
         out->push_back(x);
     });
@@ -745,7 +745,7 @@ void test_sodium::hold_is_delayed()
 
 struct SB
 {
-    SB(optional<char> oa, optional<char> ob, optional<behavior<char>> osw) : oa(oa), ob(ob), osw(osw) {}
+    SB(optional<char> oa_, optional<char> ob_, optional<behavior<char>> osw_) : oa(oa_), ob(ob_), osw(osw_) {}
     optional<char> oa;
     optional<char> ob;
     optional<behavior<char>> osw;
@@ -780,7 +780,7 @@ void test_sodium::switch_b1()
 
 struct SE
 {
-    SE(optional<char> oa, optional<char> ob, optional<event<char>> osw) : oa(oa), ob(ob), osw(osw) {}
+    SE(optional<char> oa_, optional<char> ob_, optional<event<char>> osw_) : oa(oa_), ob(ob_), osw(osw_) {}
     optional<char> oa;
     optional<char> ob;
     optional<event<char>> osw;
@@ -987,8 +987,8 @@ void test_sodium::loop_value_snapshot()
     behavior<string> a("lettuce");
     transaction trans; 
     behavior_loop<string> b;
-    auto eSnap = a.value().snapshot<string,string>(b, [] (const string& a, const string& b) {
-        return a + " " + b;
+    auto eSnap = a.value().snapshot<string,string>(b, [] (const string& a_, const string& b_) {
+        return a_ + " " + b_;
     });
     b.loop(behavior<string>("cheese"));
     auto unlisten = eSnap.listen([out] (const string& x) { out->push_back(x); });
@@ -1018,8 +1018,8 @@ void test_sodium::lift_loop()
     transaction trans;
     behavior_loop<string> a;
     behavior_sink<string> b("kettle");
-    auto c = lift<string, string, string>([] (const string& a, const string& b) {
-        return a+" "+b;
+    auto c = lift<string, string, string>([] (const string& a_, const string& b_) {
+        return a_+" "+b_;
     }, a, b);
     a.loop(behavior<string>("tea"));
     auto unlisten = c.value().listen([out] (const string& x) { out->push_back(x); });
@@ -1105,8 +1105,8 @@ void test_sodium::lift_from_simultaneous()
     behavior<int> sum = lift<int, int, int>(
         [] (const int& a, const int& b) { return a + b; }, b1, b2);
     auto out = std::make_shared<vector<int>>();
-    auto kill = sum.value().listen([out] (const int& sum) {
-        out->push_back(sum);
+    auto kill = sum.value().listen([out] (const int& sum_) {
+        out->push_back(sum_);
     });
     b2.send(7);
     trans.close();

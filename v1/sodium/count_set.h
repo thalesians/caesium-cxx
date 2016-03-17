@@ -16,12 +16,12 @@ namespace sodium {
 
         struct large_count_set {
             large_count_set(
-                    unsigned strong_count,
-                    unsigned event_count,
-                    unsigned node_count
-                ) : strong_count(strong_count),
-                    event_count(event_count),
-                    node_count(node_count)
+                    unsigned strong_count_,
+                    unsigned event_count_,
+                    unsigned node_count_
+                ) : strong_count(strong_count_),
+                    event_count(event_count_),
+                    node_count(node_count_)
             {
             }
             unsigned strong_count;

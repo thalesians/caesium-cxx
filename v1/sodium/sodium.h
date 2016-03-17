@@ -95,8 +95,8 @@ namespace sodium {
 
         public:
             event_();
-            event_(const boost::intrusive_ptr<listen_impl_func<H_EVENT> >& p_listen_impl)
-                : p_listen_impl(p_listen_impl) {}
+            event_(const boost::intrusive_ptr<listen_impl_func<H_EVENT> >& p_listen_impl_)
+                : p_listen_impl(p_listen_impl_) {}
 
 #if defined(SODIUM_CONSTANT_OPTIMIZATION)
             bool is_never() const { return !impl::alive(p_listen_impl); }
@@ -332,7 +332,7 @@ namespace sodium {
                             const event_& input);
 
         struct behavior_impl_constant : behavior_impl {
-            behavior_impl_constant(const light_ptr& k) : k(k) {}
+            behavior_impl_constant(const light_ptr& k_) : k(k_) {}
             light_ptr k;
             virtual const light_ptr& sample() const { return k; }
             virtual const light_ptr& newValue() const { return k; }
@@ -341,11 +341,11 @@ namespace sodium {
         template <class state_t>
         struct behavior_impl_concrete : behavior_impl {
             behavior_impl_concrete(
-                const event_& updates,
-                const state_t& state,
-                const SODIUM_SHARED_PTR<behavior_impl>& parent)
-            : behavior_impl(updates, parent),
-              state(state)
+                const event_& updates_,
+                const state_t& state_,
+                const SODIUM_SHARED_PTR<behavior_impl>& parent_)
+            : behavior_impl(updates_, parent_),
+              state(state_)
             {
             }
             state_t state;
@@ -356,11 +356,11 @@ namespace sodium {
 
         struct behavior_impl_loop : behavior_impl {
             behavior_impl_loop(
-                const event_& updates,
-                const SODIUM_SHARED_PTR<SODIUM_SHARED_PTR<behavior_impl> >& pLooped,
-                const SODIUM_SHARED_PTR<behavior_impl>& parent)
-            : behavior_impl(updates, parent),
-              pLooped(pLooped)
+                const event_& updates_,
+                const SODIUM_SHARED_PTR<SODIUM_SHARED_PTR<behavior_impl> >& pLooped_,
+                const SODIUM_SHARED_PTR<behavior_impl>& parent_)
+            : behavior_impl(updates_, parent_),
+              pLooped(pLooped_)
             {
             }
             SODIUM_SHARED_PTR<SODIUM_SHARED_PTR<behavior_impl> > pLooped;
@@ -437,7 +437,7 @@ namespace sodium {
 
         template <class S>
         struct collect_state {
-            collect_state(const std::function<S()>& s_lazy) : s_lazy(s_lazy) {}
+            collect_state(const std::function<S()>& s_lazy_) : s_lazy(s_lazy_) {}
             std::function<S()> s_lazy;
         };
 
@@ -495,8 +495,8 @@ namespace sodium {
         template <class TT>
         friend behavior<typename TT::time> clock(const TT& t);
         private:
-            behavior(const SODIUM_SHARED_PTR<impl::behavior_impl>& impl)
-                : impl::behavior_(impl)
+            behavior(const SODIUM_SHARED_PTR<impl::behavior_impl>& impl_)
+                : impl::behavior_(impl_)
             {
             }
 
@@ -527,10 +527,10 @@ namespace sodium {
             }
 
             std::function<A()> sample_lazy() const {
-                const SODIUM_SHARED_PTR<impl::behavior_impl>& impl(this->impl);
-                return [impl] () -> A {
+                const SODIUM_SHARED_PTR<impl::behavior_impl>& impl_(this->impl);
+                return [impl_] () -> A {
                     transaction trans;
-                    return *impl->sample().template cast_ptr<A>(NULL);
+                    return *impl_->sample().template cast_ptr<A>(NULL);
                 };
             }
 
@@ -625,7 +625,7 @@ namespace sodium {
 #endif
             ) const
             {
-                transaction trans;
+                transaction trans1;
 #if defined(SODIUM_NO_CXX11)
                 event<A> ea = updates().coalesce(lambda2<A,A,A>(new snd_arg<A,A>));
 #else
@@ -640,18 +640,18 @@ namespace sodium {
                 }));
                 SODIUM_TUPLE<impl::event_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_event();
 #if defined(SODIUM_NO_CXX11)
-                lambda0<void>* kill = updates().listen_raw(trans.impl(), SODIUM_TUPLE_GET<1>(p),
+                lambda0<void>* kill = updates().listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
                     new lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&>(
                         new impl::collect_handler<A,S,B>(pState, f)
                     ), false);
 #else
-                auto kill = updates().listen_raw(trans.impl(), SODIUM_TUPLE_GET<1>(p),
+                auto kill = updates().listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
-                        [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans, const light_ptr& ptr) {
+                        [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
                             SODIUM_TUPLE<B,S> outsSt = f(*ptr.cast_ptr<A>(NULL), pState->s_lazy());
                             const S& new_s = SODIUM_TUPLE_GET<1>(outsSt);
                             pState->s_lazy = [new_s] () { return new_s; };
-                            send(target, trans, light_ptr::create<B>(SODIUM_TUPLE_GET<0>(outsSt)));
+                            send(target, trans2, light_ptr::create<B>(SODIUM_TUPLE_GET<0>(outsSt)));
                         }), false);
 #endif
                 return event<B>(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill)).hold_lazy([zbs] () -> B {
@@ -780,11 +780,11 @@ namespace sodium {
 #else
             std::function<void()> listen(const std::function<void(const A&)>& handle) const {
 #endif
-                transaction trans;
+                transaction trans1;
 #if defined(SODIUM_NO_CXX11)
-                lambda0<void>* pKill = listen_raw(trans.impl(),
+                lambda0<void>* pKill = listen_raw(trans1.impl(),
 #else
-                std::function<void()>* pKill = listen_raw(trans.impl(),
+                std::function<void()>* pKill = listen_raw(trans1.impl(),
 #endif
                     SODIUM_SHARED_PTR<impl::node>(new impl::node(SODIUM_IMPL_RANK_T_MAX)),
 #if defined(SODIUM_NO_CXX11)
@@ -793,7 +793,7 @@ namespace sodium {
                     ), false);
 #else
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
-                        [handle] (const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl* trans, const light_ptr& ptr) {
+                        [handle] (const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr& ptr) {
                             handle(*ptr.cast_ptr<A>(NULL));
                         }), false);
 #endif
@@ -1075,20 +1075,20 @@ namespace sodium {
 #endif
             ) const
             {
-                transaction trans;
+                transaction trans1;
                 SODIUM_SHARED_PTR<impl::collect_state<S> > pState(new impl::collect_state<S>(initS));
                 SODIUM_TUPLE<impl::event_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_event();
 #if defined(SODIUM_NO_CXX11)
-                lambda0<void>* kill = listen_raw(trans.impl(), SODIUM_TUPLE_GET<1>(p),
+                lambda0<void>* kill = listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
                     new impl::collect_handler<A,S,B>(pState, f), false);
 #else
-                auto kill = listen_raw(trans.impl(), std::get<1>(p),
+                auto kill = listen_raw(trans1.impl(), std::get<1>(p),
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
-                        [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans, const light_ptr& ptr) {
+                        [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
                             auto outsSt = f(*ptr.cast_ptr<A>(NULL), pState->s_lazy());
                             const S& new_s = SODIUM_TUPLE_GET<1>(outsSt);
                             pState->s_lazy = [new_s] () { return new_s; };
-                            send(target, trans, light_ptr::create<B>(std::get<0>(outsSt)));
+                            send(target, trans2, light_ptr::create<B>(std::get<0>(outsSt)));
                         }), false);
 #endif
                 return SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill);
@@ -1121,19 +1121,19 @@ namespace sodium {
 #endif
             ) const
             {
-                transaction trans;
+                transaction trans1;
                 SODIUM_SHARED_PTR<impl::collect_state<B> > pState(new impl::collect_state<B>(initB));
                 SODIUM_TUPLE<impl::event_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_event();
 #if defined(SODIUM_NO_CXX11)
-                lambda0<void>* kill = listen_raw(trans.impl(), SODIUM_TUPLE_GET<1>(p),
+                lambda0<void>* kill = listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
                     new impl::accum_handler<A,B>(pState, f)
 #else
-                auto kill = listen_raw(trans.impl(), SODIUM_TUPLE_GET<1>(p),
+                auto kill = listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
-                        [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans, const light_ptr& ptr) {
+                        [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
                             B b = f(*ptr.cast_ptr<A>(NULL), pState->s_lazy());
                             pState->s_lazy = [b] () { return b; };
-                            send(target, trans, light_ptr::create<B>(b));
+                            send(target, trans2, light_ptr::create<B>(b));
                         })
 #endif
                     , false);
@@ -1449,12 +1449,12 @@ namespace sodium {
             struct info {
                 info(
 #if defined(SODIUM_NO_CXX11)
-                    const SODIUM_SHARED_PTR<lambda0<void>*>& pKill
+                    const SODIUM_SHARED_PTR<lambda0<void>*>& pKill_
 #else
-                    const SODIUM_SHARED_PTR<std::function<void()>*>& pKill
+                    const SODIUM_SHARED_PTR<std::function<void()>*>& pKill_
 #endif
                 )
-                : pKill(pKill), looped(false)
+                : pKill(pKill_), looped(false)
                 {
                 }
                 SODIUM_SHARED_PTR<impl::node> target;
@@ -1468,7 +1468,7 @@ namespace sodium {
             SODIUM_SHARED_PTR<info> i;
 
         private:
-            event_loop(const impl::event_& ev, const SODIUM_SHARED_PTR<info>& i) : event<A>(ev), i(i) {}
+            event_loop(const impl::event_& ev, const SODIUM_SHARED_PTR<info>& i_) : event<A>(ev), i(i_) {}
 
         public:
             event_loop()
@@ -1485,10 +1485,10 @@ namespace sodium {
                     ))
                 );
 #endif
-                SODIUM_SHARED_PTR<info> i(new info(pKill));
+                SODIUM_SHARED_PTR<info> i_(new info(pKill));
 
                 SODIUM_TUPLE<impl::event_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_event();
-                i->target = SODIUM_TUPLE_GET<1>(p);
+                i_->target = SODIUM_TUPLE_GET<1>(p);
                 *this = event_loop<A>(
                     SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(
 #if defined(SODIUM_NO_CXX11)
@@ -1504,7 +1504,7 @@ namespace sodium {
                         )
 #endif
                     ),
-                    i
+                    i_
                 );
             }
 
@@ -1957,21 +1957,21 @@ namespace sodium {
     event<A> split(const event<std::list<A>>& e)
     {
         SODIUM_TUPLE<impl::event_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_event();
-        transaction trans;
+        transaction trans1;
 #if defined(SODIUM_NO_CXX11)
-        lambda0<void>* kill = e.listen_raw(trans.impl(), SODIUM_TUPLE_GET<1>(p),
+        lambda0<void>* kill = e.listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
             new lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&>(
                 new impl::split_handler<A>
             )
 #else
-        auto kill = e.listen_raw(trans.impl(), std::get<1>(p),
+        auto kill = e.listen_raw(trans1.impl(), std::get<1>(p),
             new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
-                [] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans, const light_ptr& ptr) {
+                [] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
                     const std::list<A>& la = *ptr.cast_ptr<std::list<A>>(NULL);
-                    trans->part->post([la, target] () {
+                    trans2->part->post([la, target] () {
                         for (auto it = la.begin(); it != la.end(); ++it) {
-                            transaction trans;
-                            send(target, trans.impl(), light_ptr::create<A>(*it));
+                            transaction trans3;
+                            send(target, trans3.impl(), light_ptr::create<A>(*it));
                         }
                     });
                 })
