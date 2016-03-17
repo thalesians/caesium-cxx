@@ -1,0 +1,31 @@
+Sodium - Functional Reactive Programming (FRP) library for multiple languages
+C++ version
+
+See central 'sodium' repository for more information
+
+Buy the book "Functional Reactive Programming" at
+  https://www.manning.com/books/functional-reactive-programming
+
+Drop by our blog at 
+  http://reactiveprogramming.org/
+
+BUILDING SODIUM
+===============
+
+To build (from v1 subdirectory):
+
+    mkdir build
+    cd build
+    cmake ..
+    make
+    make install
+
+By default, the install is to prefix /usr/local.
+
+Of course, you can use any generator you want. This has been tested with Unix Makefiles and Xcode
+
+e.g., use
+
+    cmake -G'Xcode' ..
+
+To generate an Xcode project
