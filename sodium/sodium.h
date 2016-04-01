@@ -1045,6 +1045,41 @@ namespace sodium {
                 ));
             }
 
+            template <class B, class C, class D>
+            stream<D> snapshot(const cell<B>& bc, const cell<C>& cc, const std::function<D(const A&, const B&, const C&)>& f) const
+            {
+                return snapshot<B,D>(bc, [cc, f] (const A& a, const B& b) {
+                    return f(a, b, cc.sample());
+                });
+            }
+
+            template <class B, class C, class D, class E>
+            stream<E> snapshot(const cell<B>& bc, const cell<C>& cc, const cell<D>& cd,
+                const std::function<E(const A&, const B&, const C&, const D&)>& f) const
+            {
+                return snapshot<B,E>(bc, [cc, cd, f] (const A& a, const B& b) {
+                    return f(a, b, cc.sample(), cd.sample());
+                });
+            }
+
+            template <class B, class C, class D, class E, class F>
+            stream<F> snapshot(const cell<B>& bc, const cell<C>& cc, const cell<D>& cd, const cell<E>& ce,
+                const std::function<F(const A&, const B&, const C&, const D&, const E&)>& f) const
+            {
+                return snapshot<B,F>(bc, [cc, cd, ce, f] (const A& a, const B& b) {
+                    return f(a, b, cc.sample(), cd.sample(), ce.sample());
+                });
+            }
+
+            template <class B, class C, class D, class E, class F, class G>
+            stream<G> snapshot(const cell<B>& bc, const cell<C>& cc, const cell<D>& cd, const cell<E>& ce, const cell<F>& cf,
+                const std::function<G(const A&, const B&, const C&, const D&, const E&, const F&)>& f) const
+            {
+                return snapshot<B,G>(bc, [cc, cd, ce, cf, f] (const A& a, const B& b) {
+                    return f(a, b, cc.sample(), cd.sample(), ce.sample(), cf.sample());
+                });
+            }
+
             /*!
              * Sample the cell's value as at the transaction before the
              * current one, i.e. no changes from the current transaction are
@@ -1160,7 +1195,7 @@ namespace sodium {
             }
 
             template <class B>
-            stream<B> accum_e(
+            stream<B> accum_s(
                 const B& initB,
 #if defined(SODIUM_NO_CXX11)
                 const lambda2<B, const A&, const B&>& f
@@ -1172,6 +1207,15 @@ namespace sodium {
                 return accum_e_lazy<B>([initB] () -> B { return initB; }, f);
             }
 
+            /*!
+             * Renamed to accum_s.
+             */
+            template <class B>
+            stream<B> accum_e(
+                const B& initB,
+                const std::function<B(const A&, const B&)>& f
+            ) const __attribute__ ((deprecated));
+
             template <class B>
             cell<B> accum(
                 const B& initB,
@@ -1182,7 +1226,7 @@ namespace sodium {
 #endif
             ) const
             {
-                return accum_e(initB, f).hold(initB);
+                return accum_s(initB, f).hold(initB);
             }
 
             cell<int> count() const
@@ -1237,6 +1281,16 @@ namespace sodium {
                 ));
             }
     };  // end class stream
+
+    template <class A>
+    template <class B>
+    stream<B> stream<A>::accum_e(
+        const B& initB,
+        const std::function<B(const A&, const B&)>& f
+    ) const
+    {
+        return accum_s<B>(initB, f);
+    }
 
     namespace impl {
         struct stream_sink_impl {

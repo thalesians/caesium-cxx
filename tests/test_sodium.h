@@ -30,6 +30,7 @@ class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST(collect2);
     CPPUNIT_TEST(hold1);
     CPPUNIT_TEST(snapshot1);
+    CPPUNIT_TEST(snapshot2);
     CPPUNIT_TEST(value1);
     CPPUNIT_TEST(value_const);
     CPPUNIT_TEST(constant_cell);
@@ -86,6 +87,7 @@ public:
     void collect2();
     void hold1();
     void snapshot1();
+    void snapshot2();
     void value1();
     void value_const();
     void constant_cell();

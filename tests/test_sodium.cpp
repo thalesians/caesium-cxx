@@ -81,152 +81,6 @@ void test_sodium::merge_non_simultaneous()
     CPPUNIT_ASSERT(shouldBe == *out);
 }
 
-#if 0
-void test_sodium::merge_left_bias()
-{
-    stream_sink<string> e1;
-    stream_sink<string> e2;
-    std::shared_ptr<vector<string> > out = std::make_shared<vector<string> >();
-    stream<string> e = e1.merge(e2);
-    auto unlisten = e.listen([out] (const string& x) { out->push_back(x); });
-    {
-        transaction trans;
-        e1.send("left1a");
-        e1.send("left1b");
-        e2.send("right1a");
-        e2.send("right1b");
-    }
-    {
-        transaction trans;
-        e2.send("right2a");
-        e2.send("right2b");
-        e1.send("left2a");
-        e1.send("left2b");
-    }
-    unlisten();
-    vector<string> shouldBe = {
-        string("left1a"), string("left1b"),
-        string("right1a"), string("right1b"),
-        string("left2a"), string("left2b"),
-        string("right2a"), string("right2b") };
-    CPPUNIT_ASSERT(shouldBe == *out);
-}
-#endif
-
-#if 0
-void test_sodium::merge_left_bias_2_common(   
-    stream_sink<string> e1,
-    stream_sink<string> e2,
-    stream_sink<string> e3,
-    stream<string> e,
-    std::shared_ptr<vector<string> > out
-)
-{
-    auto unlisten = e.listen([out] (const string& x) { out->push_back(x); });
-    {
-        transaction trans;
-        e1.send("1a");
-        e2.send("1b");
-        e3.send("1c");
-    }
-    {
-        transaction trans;
-        e2.send("2b");
-        e1.send("2a");
-        e3.send("2c");
-    }
-    {
-        transaction trans;
-        e1.send("3a");
-        e3.send("3c");
-        e2.send("3b");
-    }
-    {
-        transaction trans;
-        e3.send("4c");
-        e1.send("4a");
-        e2.send("4b");
-    }
-    {
-        transaction trans;
-        e2.send("5b");
-        e3.send("5c");
-        e1.send("5a");
-    }
-    {
-        transaction trans;
-        e3.send("6c");
-        e2.send("6b");
-        e1.send("6a");
-    }
-    vector<string> shouldBe = {
-        string("1a"), string("1b"), string("1c"),
-        string("2a"), string("2b"), string("2c"),
-        string("3a"), string("3b"), string("3c"),
-        string("4a"), string("4b"), string("4c"),
-        string("5a"), string("5b"), string("5c"),
-        string("6a"), string("6b"), string("6c"),
-    };
-    CPPUNIT_ASSERT(shouldBe == *out);
-}
-#endif
-
-#if 0
-void test_sodium::merge_left_bias_2a()
-{
-    std::shared_ptr<vector<string> > out = std::make_shared<vector<string> >();
-    stream_sink<string> e1;
-    stream_sink<string> e2;
-    stream_sink<string> e3;
-    stream<string> e = e1.merge(e2.merge(e3));
-    merge_left_bias_2_common(e1, e2, e3, e, out);
-}
-#endif
-
-#if 0
-void test_sodium::merge_left_bias_2b()
-{
-    std::shared_ptr<vector<string> > out = std::make_shared<vector<string> >();
-    stream_sink<string> e1;
-    stream_sink<string> e2;
-    stream_sink<string> e3;
-    stream<string> e = e1.merge(e2).merge(e3);
-    merge_left_bias_2_common(e1, e2, e3, e, out);
-}
-#endif
-
-#if 0
-void test_sodium::merge_simultaneous()
-{
-    stream_sink<int> e;
-    auto out = std::make_shared<vector<int>>();
-    auto unlisten = e.merge(e).listen([out] (const int& x) { out->push_back(x); });
-    e.send(7);
-    e.send(9);
-    unlisten();
-    vector<int> shouldBe = {7,7,9,9};
-    CPPUNIT_ASSERT(shouldBe == *out);
-}
-#endif
-
-#if 0
-void test_sodium::coalesce()
-{
-    stream_sink<int> e1;
-    stream_sink<int> e2;
-    auto out = std::make_shared<vector<int>>();
-    auto unlisten = e1.merge(e1.map<int>([] (const int& x) -> int { return x * 100; }).merge(e2))
-                      .coalesce([] (const int& a, const int& b) -> int { return a+b; })
-                      .listen([out] (const int& x) { out->push_back(x); });
-    e1.send(2);
-    e1.send(8);
-    e2.send(40);
-    unlisten();
-    vector<int> shouldBe = {202, 808, 40};
-    CPPUNIT_ASSERT(shouldBe == *out);
-}
-#endif
-
 void test_sodium::filter()
 {
     stream_sink<char> e;
@@ -334,8 +188,6 @@ void test_sodium::hold1()
 void test_sodium::snapshot1()
 {
     cell_sink<int> b(0);
-    b.send(2);  /* ### */
-    /*
     stream_sink<long> trigger;
     auto out = std::make_shared<vector<string>>();
     auto unlisten = trigger.snapshot<int,string>(b, [out] (const long& x, const int& y) -> string {
@@ -353,7 +205,31 @@ void test_sodium::snapshot1()
     trigger.send(300l);
     unlisten();
     CPPUNIT_ASSERT(vector<string>({ string("100 0"), string("200 2"), string("300 1") }) == *out);
-    */
+}
+
+void test_sodium::snapshot2()
+{
+    cell_sink<int> b(0);
+    cell_sink<int> c(5);
+    stream_sink<long> trigger;
+    auto out = std::make_shared<vector<string>>();
+    auto unlisten = trigger.snapshot<int,int,string>(b, c, [out] (const long& x, const int& y, const int& z) -> string {
+        char buf[129];
+        sprintf(buf, "%ld %d %d", x, y, z);
+        return buf;
+    }).listen([out] (const string& s) {
+        out->push_back(s);
+    });
+    trigger.send(100l);
+    b.send(2);
+    trigger.send(200l);
+    b.send(9);
+    b.send(1);
+    trigger.send(300l);
+    c.send(3);
+    trigger.send(400l);
+    unlisten();
+    CPPUNIT_ASSERT(vector<string>({ string("100 0 5"), string("200 2 5"), string("300 1 5"), string("400 1 3") }) == *out);
 }
 
 void test_sodium::value1()
@@ -417,22 +293,6 @@ stream<A> doubleUp(const stream<A>& ea)
     return ea.merge(ea);
 }
 
-#if 0
-void test_sodium::value_twice_then_map()
-{
-    cell_sink<int> b(9);
-    auto out = std::make_shared<vector<int>>();
-    transaction trans;
-    auto unlisten = doubleUp<int>(b.value()).map<int>([] (const int& x) { return x + 100; })
-        .listen([out] (const int& x) { out->push_back(x); });
-    trans.close();
-    b.send(2);
-    b.send(7);
-    unlisten();
-    CPPUNIT_ASSERT(vector<int>({ 109,109,102,102,107,107 }) == *out);
-}
-#endif
-
 void test_sodium::value_then_coalesce()
 {
     cell_sink<int> b(9);
@@ -446,22 +306,6 @@ void test_sodium::value_then_coalesce()
     unlisten();
     CPPUNIT_ASSERT(vector<int>({ 9, 2, 7 }) == *out);
 }
-
-#if 0
-void test_sodium::value_twice_then_coalesce()
-{
-    cell_sink<int> b(9);
-    auto out = std::make_shared<vector<int>>();
-    transaction trans;
-    auto unlisten = doubleUp(b.value()).coalesce([] (const int& fst, const int& snd) -> int { return fst + snd; })
-        .listen([out] (const int& x) { out->push_back(x); });
-    trans.close();
-    b.send(2);
-    b.send(7);
-    unlisten();
-    CPPUNIT_ASSERT(vector<int>({ 18, 4, 14 }) == *out);
-}
-#endif
 
 void test_sodium::value_then_snapshot()
 {
@@ -478,24 +322,6 @@ void test_sodium::value_then_snapshot()
     unlisten();
     CPPUNIT_ASSERT_EQUAL(string("abc"), *out);
 }
-
-#if 0
-void test_sodium::value_twice_then_snapshot()
-{
-    cell_sink<int> bi(9);
-    cell_sink<char> bc('a');
-    auto out = std::make_shared<string>();
-    transaction trans;
-    auto unlisten = doubleUp(bi.value()).snapshot(bc).listen([out] (const char& c) { *out += c; });
-    trans.close();
-    bc.send('b');
-    bi.send(2);
-    bc.send('c');
-    bi.send(7);
-    unlisten();
-    CPPUNIT_ASSERT_EQUAL(string("aabbcc"), *out);
-}
-#endif
 
 void test_sodium::value_then_merge()
 {
@@ -554,22 +380,6 @@ void test_sodium::value_then_filter2b()
     CPPUNIT_ASSERT(vector<int>({ 7 }) == *out);
 }
 
-#if 0
-void test_sodium::value_twice_then_filter()
-{
-    cell_sink<int> b(9);
-    auto out = std::make_shared<vector<int>>();
-    transaction trans;
-    auto unlisten = doubleUp(b.value()).filter([] (const int& x) { return true; })
-        .listen([out] (const int& x) { out->push_back(x); });
-    trans.close();
-    b.send(2);
-    b.send(7);
-    unlisten();
-    CPPUNIT_ASSERT(vector<int>({ 9, 9, 2, 2, 7, 7 }) == *out);
-}
-#endif
-
 void test_sodium::value_then_once()
 {
     cell_sink<int> b(9);
@@ -583,22 +393,6 @@ void test_sodium::value_then_once()
     unlisten();
     CPPUNIT_ASSERT(vector<int>({ 9 }) == *out);
 }
-
-#if 0
-void test_sodium::value_twice_then_once()
-{
-    cell_sink<int> b(9);
-    auto out = std::make_shared<vector<int>>();
-    transaction trans;
-    auto unlisten = doubleUp(b.value()).once()
-        .listen([out] (const int& x) { out->push_back(x); });
-    trans.close();
-    b.send(2);
-    b.send(7);
-    unlisten();
-    CPPUNIT_ASSERT(vector<int>({ 9 }) == *out);
-}
-#endif
 
 void test_sodium::value_late_listen()
 {
@@ -1071,21 +865,6 @@ void test_sodium::move_semantics()
     });
     CPPUNIT_ASSERT(value.sample() == 625);
 }
-
-#if 0  // TO DO: Reinstate
-void test_sodium::move_semantics_sink()
-{
-    cell_sink<unique_ptr<int>> bs(unique_ptr<int>(new int(1)));
-
-    int newValue = 0;
-    bs.updates().listen([&](const unique_ptr<int>& pInt) {
-        newValue = pInt ? *pInt : 0;
-    });
-
-    bs.send(unique_ptr<int>(new int(2)));
-    CPPUNIT_ASSERT(newValue == 2);
-}
-#endif
 
 void test_sodium::move_semantics_hold()
 {
