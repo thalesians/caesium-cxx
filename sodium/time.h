@@ -64,6 +64,7 @@ namespace sodium {
 
     template <class T>
     stream<typename T::time> periodic_timer(const T& t, const cell<typename T::time>& period) {
+        transaction trans;
         using namespace boost;
         cell_loop<optional<typename T::time>> tAlarm;
         stream<typename T::time> eAlarm = at(t, tAlarm);
