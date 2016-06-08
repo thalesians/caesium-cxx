@@ -51,7 +51,7 @@ namespace sodium {
     namespace impl {
 
         class cell_;
-        class cell_impl;
+        struct cell_impl;
 
         class stream_ {
         friend class cell_;
