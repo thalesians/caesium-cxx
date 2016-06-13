@@ -893,6 +893,29 @@ void test_sodium::lift_from_simultaneous()
     CPPUNIT_ASSERT(vector<int>({ 10 }) == *out);
 }
 
+void test_sodium::stream_sink_combining()
+{
+    stream_sink<int> s([] (int a, int b) { return a + b; });
+    auto out = std::make_shared<vector<int>>();
+    auto kill = s.listen([out] (const int& a) {
+        out->push_back(a);
+    });
+    s.send(99);
+    {
+        transaction trans;
+        s.send(18);
+        s.send(100);
+        s.send(2001);
+    }
+    {
+        transaction trans;
+        s.send(5);
+        s.send(10);
+    }
+    kill();
+    CPPUNIT_ASSERT(vector<int>({ 99, 2119, 15 }) == *out);
+}
+
 int main(int argc, char* argv[])
 {
     for (int i = 0; i < 1; i++) {
