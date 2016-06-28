@@ -1,5 +1,5 @@
 ifeq ($(NO_CXX11),)
-all: test_sodium memory/release-sink-machinery memory/switch-memory
+all: test_sodium memory/release-sink-machinery memory/switch-memory memory/promise-memory
 else
 all: test_sodium
 endif
@@ -36,7 +36,12 @@ memory/release-sink-machinery: $(OBJECT_FILES) memory/release-sink-machinery.o
 memory/switch-memory: $(OBJECT_FILES) memory/switch-memory.o
 	$(CXX) -o $@ $(OBJECT_FILES) memory/switch-memory.o -lpthread
 
+memory/promise-memory: $(OBJECT_FILES) memory/promise-memory.o
+	$(CXX) -o $@ $(OBJECT_FILES) memory/promise-memory.o -lpthread
+
 clean:
 	rm -f $(OBJECT_FILES) \
             test_sodium test_sodium.o \
-            memory/release-sink-machinery memory/release-sink-machinery.o
+            memory/release-sink-machinery memory/release-sink-machinery.o \
+            memory/switch-memory memory/switch-memory.o \
+            memory/promise-memory memory/promise-memory.o
