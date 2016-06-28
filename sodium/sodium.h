@@ -34,11 +34,7 @@ namespace sodium {
     template <class A> class cell_loop;
     template <class A> class stream_loop;
     template <class A, class B>
-#if defined(SODIUM_NO_CXX11)
-    cell<B> apply(const cell<lambda1<B,const A&>>& bf, const cell<A>& ba);
-#else
     cell<B> apply(const cell<std::function<B(const A&)>>& bf, const cell<A>& ba);
-#endif
     template <class A>
     stream<A> filter_optional(const stream<boost::optional<A>>& input);
     template <class A>
@@ -62,31 +58,15 @@ namespace sodium {
         friend SODIUM_SHARED_PTR<cell_impl> hold(transaction_impl* trans0, const light_ptr& initValue, const stream_& input);
         friend SODIUM_SHARED_PTR<cell_impl> hold_lazy(transaction_impl* trans0, const std::function<light_ptr()>& initValue, const stream_& input);
         template <class A, class B>
-#if defined(SODIUM_NO_CXX11)
-        friend cell<B> sodium::apply(const cell<lambda1<B, const A&>>& bf, const cell<A>& ba);
-#else
         friend cell<B> sodium::apply(const cell<std::function<B(const A&)>>& bf, const cell<A>& ba);
-#endif
         friend cell_ apply(transaction_impl* trans0, const cell_& bf, const cell_& ba);
-#if defined(SODIUM_NO_CXX11)
-        friend stream_ map_(transaction_impl* trans, const lambda1<light_ptr, const light_ptr&>& f, const stream_& ev);
-#else
         friend stream_ map_(transaction_impl* trans, const std::function<light_ptr(const light_ptr&)>& f, const stream_& ev);
-#endif
         friend cell_ map_(transaction_impl* trans,
-#if defined(SODIUM_NO_CXX11)
-            const lambda1<light_ptr, const light_ptr&>& f,
-#else
             const std::function<light_ptr(const light_ptr&)>& f,
-#endif
             const cell_& beh);
         friend stream_ switch_s(transaction_impl* trans, const cell_& bea);
         template <class A>
         friend stream<A> sodium::split(const stream<std::list<A>>& e);
-#if defined(SODIUM_NO_CXX11)
-        friend struct switch_s_task;
-        friend struct switch_c_handler;
-#endif
         friend stream_ filter_optional_(transaction_impl* trans, const stream_& input,
             const std::function<boost::optional<light_ptr>(const light_ptr&)>& f);
 
@@ -107,29 +87,17 @@ namespace sodium {
             /*!
              * listen to streams.
              */
-#if defined(SODIUM_NO_CXX11)
-            lambda0<void>* listen_raw(
-#else
             std::function<void()>* listen_raw(
-#endif
                         transaction_impl* trans0,
                         const SODIUM_SHARED_PTR<impl::node>& target,
-#if defined(SODIUM_NO_CXX11)
-                        lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, transaction_impl*, const light_ptr&>* handle,
-#else
                         std::function<void(const SODIUM_SHARED_PTR<impl::node>&, transaction_impl*, const light_ptr&)>* handle,
-#endif
                         bool suppressEarlierFirings) const;
 
             /*!
              * This is far more efficient than add_cleanup because it modifies the stream
              * in place.
              */
-#if defined(SODIUM_NO_CXX11)
-            stream_ unsafe_add_cleanup(lambda0<void>* cleanup)
-#else
             stream_ unsafe_add_cleanup(std::function<void()>* cleanup)
-#endif
             {
                 boost::intrusive_ptr<listen_impl_func<H_STRONG> > li(
                     reinterpret_cast<listen_impl_func<H_STRONG>*>(p_listen_impl.get()));
@@ -148,11 +116,7 @@ namespace sodium {
              * This is far more efficient than add_cleanup because it modifies the stream
              * in place.
              */
-#if defined(SODIUM_NO_CXX11)
-            stream_ unsafe_add_cleanup(lambda0<void>* cleanup1, lambda0<void>* cleanup2)
-#else
             stream_ unsafe_add_cleanup(std::function<void()>* cleanup1, std::function<void()>* cleanup2)
-#endif
             {
                 boost::intrusive_ptr<listen_impl_func<H_STRONG> > li(
                     reinterpret_cast<listen_impl_func<H_STRONG>*>(p_listen_impl.get()));
@@ -179,11 +143,7 @@ namespace sodium {
              * This is far more efficient than add_cleanup because it modifies the stream
              * in place.
              */
-#if defined(SODIUM_NO_CXX11)
-            stream_ unsafe_add_cleanup(lambda0<void>* cleanup1, lambda0<void>* cleanup2, lambda0<void>* cleanup3)
-#else
             stream_ unsafe_add_cleanup(std::function<void()>* cleanup1, std::function<void()>* cleanup2, std::function<void()>* cleanup3)
-#endif
             {
                 boost::intrusive_ptr<listen_impl_func<H_STRONG> > li(
                     reinterpret_cast<listen_impl_func<H_STRONG>*>(p_listen_impl.get()));
@@ -217,34 +177,17 @@ namespace sodium {
             /*!
              * Create a new stream that is like this stream but has an extra cleanup.
              */
-#if defined(SODIUM_NO_CXX11)
-            stream_ add_cleanup_(transaction_impl* trans, lambda0<void>* cleanup) const;
-#else
             stream_ add_cleanup_(transaction_impl* trans, std::function<void()>* cleanup) const;
-#endif
             cell_ hold_(transaction_impl* trans, const light_ptr& initA) const;
             cell_ hold_lazy_(transaction_impl* trans, const std::function<light_ptr()>& initA) const;
             stream_ once_(transaction_impl* trans) const;
             stream_ merge_(transaction_impl* trans, const stream_& other) const;
-#if defined(SODIUM_NO_CXX11)
-            stream_ coalesce_(transaction_impl* trans, const lambda2<light_ptr, const light_ptr&, const light_ptr&>& combine) const;
-#else
             stream_ coalesce_(transaction_impl* trans, const std::function<light_ptr(const light_ptr&, const light_ptr&)>& combine) const;
-#endif
             stream_ last_firing_only_(transaction_impl* trans) const;
-#if defined(SODIUM_NO_CXX11)
-            stream_ snapshot_(transaction_impl* trans, const cell_& beh, const lambda2<light_ptr, const light_ptr&, const light_ptr&>& combine) const;
-            stream_ filter_(transaction_impl* trans, const lambda1<bool, const light_ptr&>& pred) const;
-#else
             stream_ snapshot_(transaction_impl* trans, const cell_& beh, const std::function<light_ptr(const light_ptr&, const light_ptr&)>& combine) const;
             stream_ filter_(transaction_impl* trans, const std::function<bool(const light_ptr&)>& pred) const;
-#endif
 
-#if defined(SODIUM_NO_CXX11)
-            lambda0<void>* listen_impl(
-#else
             std::function<void()>* listen_impl(
-#endif
                 transaction_impl* trans,
                 const SODIUM_SHARED_PTR<impl::node>& target,
                 SODIUM_SHARED_PTR<holder> h,
@@ -258,28 +201,11 @@ namespace sodium {
                     return NULL;
             }
         };
-#if defined(SODIUM_NO_CXX11)
-        template <class A, class B>
-        class _de_type : public i_lambda1<light_ptr, const light_ptr&>
-        {
-        private:
-            lambda1<B,const A&> f;
-        public:
-            _de_type(const lambda1<B,const A&>& f) : f(f) {}
-            virtual light_ptr operator () (const light_ptr& a) const
-            {
-                return light_ptr::create<B>(f(*a.cast_ptr<A>(NULL)));
-            }
-        };
-        #define SODIUM_DETYPE_FUNCTION1(A,B,f) new sodium::impl::_de_type<A,B>(f)
-        stream_ map_(transaction_impl* trans, const lambda1<light_ptr, const light_ptr&>& f, const stream_& ca);
-#else
         #define SODIUM_DETYPE_FUNCTION1(A,B,f) \
                    [f] (const light_ptr& a) -> light_ptr { \
                         return light_ptr::create<B>(f(*a.cast_ptr<A>(NULL))); \
                    }
         stream_ map_(transaction_impl* trans, const std::function<light_ptr(const light_ptr&)>& f, const stream_& ca);
-#endif
 
         /*!
          * Function to push a value into an stream
@@ -308,20 +234,11 @@ namespace sodium {
                              // underlying stream's cleanups alive, and provides access to the
                              // underlying stream, for certain primitives.
 
-#if defined(SODIUM_NO_CXX11)
-            lambda0<void>* kill;
-#else
             std::function<void()>* kill;
-#endif
             SODIUM_SHARED_PTR<cell_impl> parent;
 
-#if defined(SODIUM_NO_CXX11)
-            lambda3<lambda0<void>, transaction_impl*, const SODIUM_SHARED_PTR<node>&,
-                             const lambda2<void, transaction_impl*, const light_ptr&>&> listen_value_raw() const;
-#else
             std::function<std::function<void()>(transaction_impl*, const SODIUM_SHARED_PTR<node>&,
                              const std::function<void(transaction_impl*, const light_ptr&)>&)> listen_value_raw() const;
-#endif
         };
 
         SODIUM_SHARED_PTR<cell_impl> hold(transaction_impl* trans0,
@@ -427,48 +344,15 @@ namespace sodium {
                 const stream_& updates_() const { return impl->updates; }
         };
 
-#if defined(SODIUM_NO_CXX11)
-        cell_ map_(transaction_impl* trans, const lambda1<light_ptr, const light_ptr&>& f,
-            const cell_& beh);
-#else
         cell_ map_(transaction_impl* trans, const std::function<light_ptr(const light_ptr&)>& f,
             const cell_& beh);
-#endif
 
         template <class S>
         struct collect_state {
             collect_state(const std::function<S()>& s_lazy_) : s_lazy(s_lazy_) {}
             std::function<S()> s_lazy;
         };
-
-#if defined(SODIUM_NO_CXX11)
-        template <class A, class S, class B>
-        struct collect_handler {
-            collect_handler(const SODIUM_SHARED_PTR<collect_state<S> >& pState,
-                            const lambda2<SODIUM_TUPLE<B, S>, const A&, const S&>& f)
-            : pState(pState), f(f) {}
-            SODIUM_SHARED_PTR<collect_state<S> > pState;
-            lambda2<SODIUM_TUPLE<B, S>, const A&, const S&> f;
-            virtual void operator () (const SODIUM_SHARED_PTR<node>& target, transaction_impl* trans,
-                                      const light_ptr& ptr) {
-                SODIUM_TUPLE<B,S> outsSt = f(*ptr.cast_ptr<A>(NULL), pState->s);
-                pState->s = SODIUM_TUPLE_GET<1>(outsSt);
-                send(target, trans, light_ptr::create<B>(SODIUM_TUPLE_GET<0>(outsSt)));
-            }
-        };
-#endif
     }  // end namespace impl
-
-#if defined(SODIUM_NO_CXX11)
-    template <class A, class B>
-    struct fst_arg : i_lambda2<A,const A&, const B&>  {
-        virtual A operator () (const A& a, const B&) const { return a; }
-    };
-    template <class A, class B>
-    struct snd_arg : i_lambda2<B,const A&, const B&> {
-        virtual B operator () (const A&, const B& b) const { return b; }
-    };
-#endif
 
     template <class A>
     class stream;
@@ -483,11 +367,7 @@ namespace sodium {
         template <class AA> friend class cell;
         template <class AA> friend class cell_loop;
         template <class AA, class BB>
-#if defined(SODIUM_NO_CXX11)
-        friend cell<BB> apply(const cell<lambda1<BB, const AA&>>& bf, const cell<AA>& ba);
-#else
         friend cell<BB> apply(const cell<std::function<BB(const AA&)>>& bf, const cell<AA>& ba);
-#endif
         template <class AA>
         friend cell<AA> switch_c(const cell<cell<AA>>& bba);
         template <class AA>
@@ -538,11 +418,7 @@ namespace sodium {
              * Returns a new cell with the specified cleanup added to it, such that
              * it will be executed when no copies of the new cell are referenced.
              */
-#if defined(SODIUM_NO_CXX11)
-            cell<A> add_cleanup(const lambda0<void>& cleanup) const {
-#else
             cell<A> add_cleanup(const std::function<void()>& cleanup) const {
-#endif
                 transaction trans;
                 return updates().add_cleanup(cleanup).hold(sample());
             }
@@ -551,11 +427,7 @@ namespace sodium {
              * Map a function over this behaviour to modify the output value.
              */
             template <class B>
-#if defined(SODIUM_NO_CXX11)
-            cell<B> map(const lambda1<B, const A&>& f) const {
-#else
             cell<B> map(const std::function<B(const A&)>& f) const {
-#endif
                 transaction trans;
                 return cell<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
             }
@@ -568,11 +440,7 @@ namespace sodium {
              * work around it with map_.
              */
             template <class B>
-#if defined(SODIUM_NO_CXX11)
-            cell<B> map_(const lambda1<B, const A&>& f) const {
-#else
             cell<B> map_(const std::function<B(const A&)>& f) const {
-#endif
                 transaction trans;
                 return cell<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
             }
@@ -618,19 +486,11 @@ namespace sodium {
             template <class S, class B>
             cell<B> collect_lazy(
                 const std::function<S()>& initS,
-#if defined(SODIUM_NO_CXX11)
-                const lambda2<SODIUM_TUPLE<B, S>, const A&, const S&>& f
-#else
                 const std::function<std::tuple<B, S>(const A&, const S&)>& f
-#endif
             ) const
             {
                 transaction trans1;
-#if defined(SODIUM_NO_CXX11)
-                stream<A> ea = updates().coalesce(lambda2<A,A,A>(new snd_arg<A,A>));
-#else
                 auto ea = updates().coalesce([] (const A&, const A& snd) -> A { return snd; });
-#endif
                 std::function<A()> za_lazy = sample_lazy();
                 std::function<SODIUM_TUPLE<B,S>()> zbs = [za_lazy, initS, f] () -> SODIUM_TUPLE<B,S> {
                     return f(za_lazy(), initS());
@@ -639,12 +499,6 @@ namespace sodium {
                     return SODIUM_TUPLE_GET<1>(zbs());
                 }));
                 SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
-#if defined(SODIUM_NO_CXX11)
-                lambda0<void>* kill = updates().listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
-                    new lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&>(
-                        new impl::collect_handler<A,S,B>(pState, f)
-                    ), false);
-#else
                 auto kill = updates().listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
                         [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
@@ -653,7 +507,6 @@ namespace sodium {
                             pState->s_lazy = [new_s] () { return new_s; };
                             send(target, trans2, light_ptr::create<B>(SODIUM_TUPLE_GET<0>(outsSt)));
                         }), false);
-#endif
                 return stream<B>(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill)).hold_lazy([zbs] () -> B {
                     return SODIUM_TUPLE_GET<0>(zbs());
                 });
@@ -666,91 +519,13 @@ namespace sodium {
             template <class S, class B>
             cell<B> collect(
                 const S& initS,
-#if defined(SODIUM_NO_CXX11)
-                const lambda2<SODIUM_TUPLE<B, S>, const A&, const S&>& f
-#else
                 const std::function<std::tuple<B, S>(const A&, const S&)>& f
-#endif
             ) const
             {
                 return collect_lazy<S, B>([initS] () -> S { return initS; }, f);
             }
 
     };  // end class cell
-
-#if defined(SODIUM_NO_CXX11)
-    namespace impl {
-        template <class A>
-        struct listen_wrap : i_lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&> {
-            listen_wrap(const lambda1<void, const A&>& handle) : handle(handle) {}
-            lambda1<void, const A&> handle;
-            virtual void operator () (const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl* trans, const light_ptr& ptr) const {
-                handle(*ptr.cast_ptr<A>(NULL));
-            }
-        };
-        struct null_action : i_lambda0<void> {
-            virtual void operator () () const {}
-        };
-        template <class A>
-        struct detype_combine : i_lambda2<light_ptr, const light_ptr&, const light_ptr&> {
-            detype_combine(const lambda2<A, const A&, const A&>& combine) : combine(combine) {}
-            lambda2<A, const A&, const A&> combine;
-            virtual light_ptr operator () (const light_ptr& a, const light_ptr& b) const {
-                return light_ptr::create<A>(combine(*a.cast_ptr<A>(NULL), *b.cast_ptr<A>(NULL)));
-            }
-        };
-        template <class A>
-        struct detype_pred : i_lambda1<bool, const light_ptr&> {
-            detype_pred(const lambda1<bool, A>& pred) : pred(pred) {}
-            lambda1<bool, A> pred;
-            virtual bool operator () (const light_ptr& a) const {
-                return pred(*a.cast_ptr<A>(NULL));
-            }
-        };
-        template <class A, class B, class C>
-        struct detype_snapshot : i_lambda2<light_ptr, const light_ptr&, const light_ptr&> {
-            detype_snapshot(const lambda2<C, const A&, const B&>& combine) : combine(combine) {}
-            lambda2<C, const A&, const B&> combine;
-            virtual light_ptr operator () (const light_ptr& a, const light_ptr& b) const {
-                return light_ptr::create<C>(combine(*a.cast_ptr<A>(NULL), *b.cast_ptr<B>(NULL)));
-            }
-        };
-        template <class A>
-        struct gate_handler : i_lambda2<boost::optional<A>, const A&, const bool&> {
-            virtual boost::optional<A> operator () (const A& a, const bool& gated) {
-                return gated ? boost::optional<A>(a) : boost::optional<A>();
-            }
-        };
-        template <class A, class B>
-        struct accum_handler : i_lambda3<void, const SODIUM_SHARED_PTR<node>&, transaction_impl*, const light_ptr&> {
-            accum_handler(
-                const SODIUM_SHARED_PTR<collect_state<B> >& pState,
-                const lambda2<B, const A&, const B&>& f)
-            : pState(pState), f(f) {}
-            SODIUM_SHARED_PTR<collect_state<B> > pState;
-            lambda2<B, const A&, const B&> f;
-
-            virtual void operator () (const SODIUM_SHARED_PTR<node>& target, transaction_impl* trans, const light_ptr& ptr) const {
-                pState->s = f(*ptr.cast_ptr<A>(NULL), pState->s);
-                send(target, trans, light_ptr::create<B>(pState->s));
-            }
-        };
-        template <class A>
-        struct count_handler : i_lambda2<int,const A&,int> {
-            virtual int operator () (const A&, int total) const {
-                return total+1;
-            }
-        };
-        template <class A>
-        struct delay_handler : i_lambda1<std::list<A>, const A&> {
-            virtual std::list<A> operator () (const A& a) const {
-                std::list<A> as;
-                as.push_back(a);
-                return as;
-            }
-        };
-    }
-#endif
 
     template <class A>
     class stream : protected impl::stream_ {
@@ -775,43 +550,21 @@ namespace sodium {
             /*!
              * High-level interface to obtain an stream's value.
              */
-#if defined(SODIUM_NO_CXX11)
-            lambda0<void> listen(const lambda1<void, const A&>& handle) const {
-#else
             std::function<void()> listen(const std::function<void(const A&)>& handle) const {
-#endif
                 transaction trans1;
-#if defined(SODIUM_NO_CXX11)
-                lambda0<void>* pKill = listen_raw(trans1.impl(),
-#else
                 std::function<void()>* pKill = listen_raw(trans1.impl(),
-#endif
                     SODIUM_SHARED_PTR<impl::node>(new impl::node(SODIUM_IMPL_RANK_T_MAX)),
-#if defined(SODIUM_NO_CXX11)
-                    new lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&>(
-                        new impl::listen_wrap<A>(handle)
-                    ), false);
-#else
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
                         [handle] (const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr& ptr) {
                             handle(*ptr.cast_ptr<A>(NULL));
                         }), false);
-#endif
                 if (pKill != NULL) {
-#if defined(SODIUM_NO_CXX11)
-                    lambda0<void> kill(*pKill);
-#else
                     std::function<void()> kill(*pKill);
-#endif
                     delete pKill;
                     return kill;
                 }
                 else
-#if defined(SODIUM_NO_CXX11)
-                    return new impl::null_action();
-#else
                     return [] () {};
-#endif
             };
 
             /*!
@@ -833,11 +586,7 @@ namespace sodium {
              * pure (referentially transparent), that is, it must not have effects.
              */
             template <class B>
-#if defined(SODIUM_NO_CXX11)
-            stream<B> map(const lambda1<B, const A&>& f) const {
-#else
             stream<B> map(const std::function<B(const A&)>& f) const {
-#endif
                 transaction trans;
                 return stream<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
             }
@@ -846,11 +595,7 @@ namespace sodium {
              * Map a function over this stream to modify the output value. Effects are allowed.
              */
             template <class B>
-#if defined(SODIUM_NO_CXX11)
-            stream<B> map_effectful(const lambda1<B, const A&>& f) const {
-#else
             stream<B> map_effectful(const std::function<B(const A&)>& f) const {
-#endif
                 return this->template map_<B>(f);  // Same as map() for now but this may change!
             }
 
@@ -862,11 +607,7 @@ namespace sodium {
              * work around it with map_.
              */
             template <class B>
-#if defined(SODIUM_NO_CXX11)
-            stream<B> map_(const lambda1<B, const A&>& f) const {
-#else
             stream<B> map_(const std::function<B(const A&)>& f) const {
-#endif
                 transaction trans;
                 return stream<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
             }
@@ -921,21 +662,13 @@ namespace sodium {
              * make any assumptions about the ordering, and the combining function would
              * ideally be commutative.
              */
-#if defined(SODIUM_NO_CXX11)
-            stream<A> coalesce(const lambda2<A, const A&, const A&>& combine) const
-#else
             stream<A> coalesce(const std::function<A(const A&, const A&)>& combine) const
-#endif
             {
                 transaction trans;
                 return stream<A>(coalesce_(trans.impl(),
-#if defined(SODIUM_NO_CXX11)
-                    new impl::detype_combine<A>(combine)
-#else
                     [combine] (const light_ptr& a, const light_ptr& b) -> light_ptr {
                         return light_ptr::create<A>(combine(*a.cast_ptr<A>(NULL), *b.cast_ptr<A>(NULL)));
                     }
-#endif
                 ));
             }
 
@@ -945,11 +678,7 @@ namespace sodium {
             stream<A> coalesce() const
             {
                 return coalesce(
-#if defined(SODIUM_NO_CXX11)
-                        new snd_arg<A,A>
-#else
                         [] (const A&, const A& snd) -> A { return snd; }
-#endif
                     );
             }
 
@@ -965,11 +694,7 @@ namespace sodium {
              * @param f Function to combine the values. It may construct FRP logic or use
              *    {@link Cell#sample()}. Apart from this the function must be <em>referentially transparent</em>.
              */
-#if defined(SODIUM_NO_CXX11)
-            stream<A> merge(const stream<A>& s, const lambda2<A, const A&, const A&>& f) const
-#else
             stream<A> merge(const stream<A>& s, const std::function<A(const A&, const A&)>& f) const
-#endif
             {
                 transaction trans;
                 return stream<A>(merge_(trans.impl(), s)).coalesce(f);
@@ -979,21 +704,13 @@ namespace sodium {
              * Filter this stream based on the specified predicate, passing through values
              * where the predicate returns true.
              */
-#if defined(SODIUM_NO_CXX11)
-            stream<A> filter(const lambda1<bool, const A&>& pred) const
-#else
             stream<A> filter(const std::function<bool(const A&)>& pred) const
-#endif
             {
                 transaction trans;
                 return stream<A>(filter_(trans.impl(),
-#if defined(SODIUM_NO_CXX11)
-                    new impl::detype_pred<A>(pred)
-#else
                     [pred] (const light_ptr& a) {
                         return pred(*a.cast_ptr<A>(NULL));
                     }
-#endif
                   ));
             }
 
@@ -1027,21 +744,13 @@ namespace sodium {
              * taken.
              */
             template <class B, class C>
-#if defined(SODIUM_NO_CXX11)
-            stream<C> snapshot(const cell<B>& beh, const lambda2<C, const A&, const B&>& combine) const
-#else
             stream<C> snapshot(const cell<B>& beh, const std::function<C(const A&, const B&)>& combine) const
-#endif
             {
                 transaction trans;
                 return stream<C>(snapshot_(trans.impl(), beh,
-#if defined(SODIUM_NO_CXX11)
-                    new impl::detype_snapshot<A,B,C>(combine)
-#else
                     [combine] (const light_ptr& a, const light_ptr& b) -> light_ptr {
                         return light_ptr::create<C>(combine(*a.cast_ptr<A>(NULL), *b.cast_ptr<B>(NULL)));
                     }
-#endif
                 ));
             }
 
@@ -1089,11 +798,7 @@ namespace sodium {
             stream<B> snapshot(const cell<B>& beh) const
             {
                 return snapshot<B, B>(beh,
-#if defined(SODIUM_NO_CXX11)
-                    new snd_arg<A,B>
-#else
                     [] (const A&, const B& b) { return b; }
-#endif
                     );
             }
 
@@ -1105,13 +810,9 @@ namespace sodium {
                 transaction trans;
                 return filter_optional<A>(snapshot<bool, boost::optional<A>>(
                     g,
-#if defined(SODIUM_NO_CXX11)
-                    new impl::gate_handler<A>()
-#else
                     [] (const A& a, const bool& gated) {
                         return gated ? boost::optional<A>(a) : boost::optional<A>();
                     }
-#endif
                 ));
             }
 
@@ -1122,20 +823,12 @@ namespace sodium {
             template <class S, class B>
             stream<B> collect_lazy(
                 const std::function<S()>& initS,
-#if defined(SODIUM_NO_CXX11)
-                const lambda2<SODIUM_TUPLE<B, S>, const A&, const S&>& f
-#else
                 const std::function<SODIUM_TUPLE<B, S>(const A&, const S&)>& f
-#endif
             ) const
             {
                 transaction trans1;
                 SODIUM_SHARED_PTR<impl::collect_state<S> > pState(new impl::collect_state<S>(initS));
                 SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
-#if defined(SODIUM_NO_CXX11)
-                lambda0<void>* kill = listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
-                    new impl::collect_handler<A,S,B>(pState, f), false);
-#else
                 auto kill = listen_raw(trans1.impl(), std::get<1>(p),
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
                         [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
@@ -1144,7 +837,6 @@ namespace sodium {
                             pState->s_lazy = [new_s] () { return new_s; };
                             send(target, trans2, light_ptr::create<B>(std::get<0>(outsSt)));
                         }), false);
-#endif
                 return SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill);
             }
 
@@ -1155,11 +847,7 @@ namespace sodium {
             template <class S, class B>
             stream<B> collect(
                 const S& initS,
-#if defined(SODIUM_NO_CXX11)
-                const lambda2<SODIUM_TUPLE<B, S>, const A&, const S&>& f
-#else
                 const std::function<SODIUM_TUPLE<B, S>(const A&, const S&)>& f
-#endif
             ) const
             {
                 return collect_lazy<S,B>([initS] () -> S { return initS; }, f);
@@ -1168,20 +856,12 @@ namespace sodium {
             template <class B>
             stream<B> accum_e_lazy(
                 const std::function<B()>& initB,
-#if defined(SODIUM_NO_CXX11)
-                const lambda2<B, const A&, const B&>& f
-#else
                 const std::function<B(const A&, const B&)>& f
-#endif
             ) const
             {
                 transaction trans1;
                 SODIUM_SHARED_PTR<impl::collect_state<B> > pState(new impl::collect_state<B>(initB));
                 SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
-#if defined(SODIUM_NO_CXX11)
-                lambda0<void>* kill = listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
-                    new impl::accum_handler<A,B>(pState, f)
-#else
                 auto kill = listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
                         [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
@@ -1189,7 +869,6 @@ namespace sodium {
                             pState->s_lazy = [b] () { return b; };
                             send(target, trans2, light_ptr::create<B>(b));
                         })
-#endif
                     , false);
                 return stream<B>(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill));
             }
@@ -1197,11 +876,7 @@ namespace sodium {
             template <class B>
             stream<B> accum_s(
                 const B& initB,
-#if defined(SODIUM_NO_CXX11)
-                const lambda2<B, const A&, const B&>& f
-#else
                 const std::function<B(const A&, const B&)>& f
-#endif
             ) const
             {
                 return accum_e_lazy<B>([initB] () -> B { return initB; }, f);
@@ -1219,11 +894,7 @@ namespace sodium {
             template <class B>
             cell<B> accum(
                 const B& initB,
-#if defined(SODIUM_NO_CXX11)
-                const lambda2<B, const A&, const B&>& f
-#else
                 const std::function<B(const A&, const B&)>& f
-#endif
             ) const
             {
                 return accum_s(initB, f).hold(initB);
@@ -1232,11 +903,7 @@ namespace sodium {
             cell<int> count() const
             {
                 return accum<int>(0,
-#if defined(SODIUM_NO_CXX11)
-                    new impl::count_handler<A>
-#else
                     [] (const A&, const int& total) -> int {  return total+1; }
-#endif
                 );
             }
 
@@ -1253,11 +920,7 @@ namespace sodium {
             stream<A> delay()
             {
                 return split<A>(map_<std::list<A> >(
-#if defined(SODIUM_NO_CXX11)
-                        new impl::delay_handler<A>
-#else
                         [] (const A& a) -> std::list<A> { return { a }; }
-#endif
                     ));
             }
 
@@ -1265,19 +928,11 @@ namespace sodium {
              * Add a clean-up operation to be performed when this stream is no longer
              * referenced.
              */
-#if defined(SODIUM_NO_CXX11)
-            stream<A> add_cleanup(const lambda0<void>& cleanup) const
-#else
             stream<A> add_cleanup(const std::function<void()>& cleanup) const
-#endif
             {
                 transaction trans;
                 return stream<A>(add_cleanup_(trans.impl(),
-#if defined(SODIUM_NO_CXX11)
-                    new lambda0<void>(cleanup)
-#else
                     new std::function<void()>(cleanup)
-#endif
                 ));
             }
     };  // end class stream
@@ -1362,18 +1017,6 @@ namespace sodium {
             }
     };
 
-#if defined(SODIUM_NO_CXX11)
-    namespace impl {
-        template <class A>
-        struct filter_optional_handler : public i_lambda3<void,const SODIUM_SHARED_PTR<node>&, transaction_impl*, const light_ptr&> {
-            virtual void operator () (const SODIUM_SHARED_PTR<node>& target, transaction_impl* trans, const light_ptr& poa) const {
-                const boost::optional<A>& oa = *poa.cast_ptr<boost::optional<A> >(NULL);
-                if (oa) send(target, trans, light_ptr::create<A>(oa.get()));
-            }
-        };
-    }
-#endif
-
     namespace impl {
         stream_ filter_optional_(transaction_impl* trans, const stream_& input,
             const std::function<boost::optional<light_ptr>(const light_ptr&)>& f);
@@ -1440,18 +1083,6 @@ namespace sodium {
 
     namespace impl {
         cell_ apply(transaction_impl* trans, const cell_& bf, const cell_& ba);
-        
-#if defined(SODIUM_NO_CXX11)
-        template <class A, class B>
-        struct apply_handler : i_lambda1<light_ptr, const light_ptr&> {
-            virtual light_ptr operator () (const light_ptr& pf) const {
-                const lambda1<B, const A&>& f = *pf.cast_ptr<lambda1<B, const A&> >(NULL);
-                return light_ptr::create<lambda1<light_ptr, const light_ptr&> >(
-                        SODIUM_DETYPE_FUNCTION1(A, B, f)
-                    );
-            }
-        };
-#endif
     };
 
     /*!
@@ -1460,50 +1091,23 @@ namespace sodium {
      */
     template <class A, class B>
     cell<B> apply(
-#if defined(SODIUM_NO_CXX11)
-        const cell<lambda1<B, const A&>>& bf,
-#else
         const cell<std::function<B(const A&)>>& bf,
-#endif
         const cell<A>& ba)
     {
         transaction trans;
         return cell<B>(impl::apply(
             trans.impl(),
             impl::map_(trans.impl(),
-#if defined(SODIUM_NO_CXX11)
-                new impl::apply_handler<A,B>,
-#else
                 [] (const light_ptr& pf) -> light_ptr {
                     const std::function<B(const A&)>& f = *pf.cast_ptr<std::function<B(const A&)>>(NULL);
                     return light_ptr::create<std::function<light_ptr(const light_ptr&)> >(
                             SODIUM_DETYPE_FUNCTION1(A, B, f)
                         );
                 },
-#endif
                 bf),
             ba
         ));
     }
-
-#if defined(SODIUM_NO_CXX11)
-    namespace impl {
-        struct stream_non_looped_kill : i_lambda0<void> {
-            virtual void operator () () const {
-            }
-        };
-        struct stream_loop_kill : i_lambda0<void> {
-            stream_loop_kill(const SODIUM_SHARED_PTR<lambda0<void>*>& pKill) : pKill(pKill) {}
-            SODIUM_SHARED_PTR<lambda0<void>*> pKill;
-            virtual void operator () () const {
-                lambda0<void>* kill = *pKill;
-                if (kill)
-                    (*kill)();
-                delete kill;
-            }
-        };
-    }
-#endif
 
     /*!
      * Enable the construction of stream loops, like this. This gives the ability to
@@ -1521,21 +1125,13 @@ namespace sodium {
         private:
             struct info {
                 info(
-#if defined(SODIUM_NO_CXX11)
-                    const SODIUM_SHARED_PTR<lambda0<void>*>& pKill_
-#else
                     const SODIUM_SHARED_PTR<std::function<void()>*>& pKill_
-#endif
                 )
                 : pKill(pKill_), looped(false)
                 {
                 }
                 SODIUM_SHARED_PTR<impl::node> target;
-#if defined(SODIUM_NO_CXX11)
-                SODIUM_SHARED_PTR<lambda0<void>*> pKill;
-#else
                 SODIUM_SHARED_PTR<std::function<void()>*> pKill;
-#endif
                 bool looped;
             };
             SODIUM_SHARED_PTR<info> i;
@@ -1546,27 +1142,18 @@ namespace sodium {
         public:
             stream_loop()
             {
-#if defined(SODIUM_NO_CXX11)
-                SODIUM_SHARED_PTR<lambda0<void>*> pKill(
-                    new lambda0<void>*(new lambda0<void>(new impl::stream_non_looped_kill))
-                );
-#else
                 SODIUM_SHARED_PTR<std::function<void()>*> pKill(
                     new std::function<void()>*(new std::function<void()>(
                         [] () {
                         }
                     ))
                 );
-#endif
                 SODIUM_SHARED_PTR<info> i_(new info(pKill));
 
                 SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
                 i_->target = SODIUM_TUPLE_GET<1>(p);
                 *this = stream_loop<A>(
                     SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(
-#if defined(SODIUM_NO_CXX11)
-                        new lambda0<void>(new impl::stream_loop_kill(pKill))
-#else
                         new std::function<void()>(
                             [pKill] () {
                                 std::function<void()>* kill = *pKill;
@@ -1575,7 +1162,6 @@ namespace sodium {
                                 delete kill;
                             }
                         )
-#endif
                     ),
                     i_
                 );
@@ -1598,21 +1184,6 @@ namespace sodium {
                 }
             }
     };
-
-#if defined(SODIUM_NO_CXX11)
-    namespace impl {
-        struct cell_non_looped_sample : i_lambda0<light_ptr> {
-            virtual light_ptr operator () () const {
-#if defined(SODIUM_NO_EXCEPTIONS)
-                abort();
-                return light_ptr();
-#else
-                throw std::runtime_error("cell_loop sampled before it was looped");
-#endif
-            }
-        };
-    }
-#endif
 
     /*!
      * Enable the construction of cell loops, like this. This gives the ability to
@@ -1707,105 +1278,31 @@ namespace sodium {
         return switch_c<A>(bba);
     }
 
-#if defined(SODIUM_NO_CXX11)
-    namespace impl {
-        template <class A, class B, class C>
-        struct lift2_handler2 : i_lambda1<C, const B&> {
-            lift2_handler2(const lambda2<C, const A&, const B&>& f, const A& a) : f(f), a(a) {}
-            lambda2<C, const A&, const B&> f;
-            A a;
-            virtual C operator () (const B& b) const {
-                return f(a, b);
-            }
-        };
-        template <class A, class B, class C>
-        struct lift2_handler1 : i_lambda1<lambda1<C, const B&>, const A&> {
-            lift2_handler1(const lambda2<C, const A&, const B&>& f) : f(f) {}
-            lambda2<C, const A&, const B&> f;
-            virtual lambda1<C, const B&> operator () (const A& a) const {
-                return new lift2_handler2<A, B, C>(f, a);
-            }
-        };
-    }
-#endif
-
     /*!
      * Lift a binary function into cells.
      */
     template <class A, class B, class C>
-#if defined(SODIUM_NO_CXX11)
-    cell<C> lift(const lambda2<C, const A&, const B&>& f, const cell<A>& ba, const cell<B>& bb)
-#else
     cell<C> lift(const std::function<C(const A&, const B&)>& f, const cell<A>& ba, const cell<B>& bb)
-#endif
     {
-#if defined(SODIUM_NO_CXX11)
-        lambda1<lambda1<C, const B&>, const A&> fa(
-            new impl::lift2_handler1<A,B,C>(f)
-        );
-#else
         std::function<std::function<C(const B&)>(const A&)> fa(
             [f] (const A& a) -> std::function<C(const B&)> {
                 return [f, a] (const B& b) -> C { return f(a, b); };
             }
         );
-#endif
         transaction trans;
         return apply<B, C>(ba.map_(fa), bb);
     }
-
-#if defined(SODIUM_NO_CXX11)
-    namespace impl {
-        template <class A, class B, class C, class D>
-        struct lift3_handler3 : i_lambda1<C, const B&> {
-            lift3_handler3(const lambda3<D, const A&, const B&, const C&>& f, const A& a, const B& b)
-                : f(f), a(a), b(b) {}
-            lambda3<D, const A&, const B&, const C&> f;
-            A a;
-            B b;
-            virtual D operator () (const C& c) const {
-                return f(a, b, c);
-            }
-        };
-        template <class A, class B, class C, class D>
-        struct lift3_handler2 : i_lambda1<lambda1<D, const C&>, const B&> {
-            lift3_handler2(const lambda3<D, const A&, const B&, const C&>& f, const A& a) : f(f), a(a) {}
-            lambda3<D, const A&, const B&, const C&> f;
-            A a;
-            virtual lambda1<D, const C&> operator () (const B& b) const {
-                return new lift3_handler3<A, B, C, D>(f, a, b);
-            }
-        };
-        template <class A, class B, class C, class D>
-        struct lift3_handler1 : i_lambda1<lambda1<lambda1<D, const C&>, const B&>, const A&> {
-            lift3_handler1(const lambda3<D, const A&, const B&, const C&>& f) : f(f) {}
-            lambda3<D, const A&, const B&, const C&> f;
-            virtual lambda1<lambda1<D, const C&>, const B&> operator () (const A& a) const {
-                return new lift3_handler2<A, B, C, D>(f, a);
-            }
-        };
-    }
-#endif
 
     /*!
      * Lift a ternary function into cells.
      */
     template <class A, class B, class C, class D>
-#if defined(SODIUM_NO_CXX11)
-    cell<D> lift(const lambda3<D, const A&, const B&, const C&>& f,
-#else
     cell<D> lift(const std::function<D(const A&, const B&, const C&)>& f,
-#endif
         const cell<A>& ba,
         const cell<B>& bb,
         const cell<C>& bc
     )
     {
-#if defined(SODIUM_NO_CXX11)
-        lambda1<lambda1<lambda1<D, const C&>, const B&>, const A&> fa(
-            new impl::lift3_handler1<A, B, C, D>(f)
-        );
-#else
         std::function<std::function<std::function<D(const C&)>(const B&)>(const A&)> fa(
             [f] (const A& a) -> std::function<std::function<D(const C&)>(const B&)> {
                 return [f, a] (const B& b) -> std::function<D(const C&)> {
@@ -1815,75 +1312,20 @@ namespace sodium {
                 };
             }
         );
-#endif
         return apply(apply(ba.map_(fa), bb), bc);
     }
-
-#if defined(SODIUM_NO_CXX11)
-    namespace impl {
-        template <class A, class B, class C, class D, class E>
-        struct lift4_handler4 : i_lambda1<E, const D&> {
-            lift4_handler4(const lambda4<E, const A&, const B&, const C&, const D&>& f, const A& a, const B& b, const C& c)
-                : f(f), a(a), b(b), c(c) {}
-            lambda4<E, const A&, const B&, const C&, const D&> f;
-            A a;
-            B b;
-            C c;
-            virtual E operator () (const D& d) const {
-                return f(a, b, c, d);
-            }
-        };
-        template <class A, class B, class C, class D, class E>
-        struct lift4_handler3 : i_lambda1<lambda1<E, const D&>, const C&> {
-            lift4_handler3(const lambda4<E, const A&, const B&, const C&, const D&>& f, const A& a, const B& b)
-                : f(f), a(a), b(b) {}
-            lambda4<E, const A&, const B&, const C&, const D&> f;
-            A a;
-            B b;
-            virtual E operator () (const C& c) const {
-                return new lift4_handler4<A, B, C, D, E>(f, a, b, c);
-            }
-        };
-        template <class A, class B, class C, class D, class E>
-        struct lift4_handler2 : i_lambda1<lambda1<lambda1<E, const D&>, const C&>, const B&> {
-            lift4_handler2(const lambda4<E, const A&, const B&, const C&, const D&>& f, const A& a) : f(f), a(a) {}
-            lambda4<E, const A&, const B&, const C&, const D&> f;
-            A a;
-            virtual lambda1<D, const C&> operator () (const B& b) const {
-                return new lift4_handler3<A, B, C, D, E>(f, a, b);
-            }
-        };
-        template <class A, class B, class C, class D, class E>
-        struct lift4_handler1 : i_lambda1<lambda1<lambda1<lambda1<E, const D&>, const C&>, const B&>, const A&> {
-            lift4_handler1(const lambda4<E, const A&, const B&, const C&, const D&>& f) : f(f) {}
-            lambda4<E, const A&, const B&, const C&, const D&> f;
-            virtual lambda1<lambda1<D, const C&>, const B&> operator () (const A& a) const {
-                return new lift4_handler2<A, B, C, D, E>(f, a);
-            }
-        };
-    }
-#endif
 
     /*!
      * Lift a quaternary function into cells.
      */
     template <class A, class B, class C, class D, class E>
-#if defined(SODIUM_NO_CXX11)
-    cell<E> lift(const lambda4<E, const A&, const B&, const C&, const D&>& f,
-#else
     cell<E> lift(const std::function<E(const A&, const B&, const C&, const D&)>& f,
-#endif
         const cell<A>& ba,
         const cell<B>& bb,
         const cell<C>& bc,
         const cell<D>& bd
     )
     {
-#if defined(SODIUM_NO_CXX11)
-        lambda1<lambda1<lambda1<lambda1<E, const D&>, const C&>, const B&>, const A&> fa(
-            new impl::lift4_handler1<A,B,C,D,E>(f)
-        );
-#else
         std::function<std::function<std::function<std::function<E(const D&)>(const C&)>(const B&)>(const A&)> fa(
             [f] (const A& a) -> std::function<std::function<std::function<E(const D&)>(const C&)>(const B&)> {
                 return [f, a] (const B& b) -> std::function<std::function<E(const D&)>(const C&)> {
@@ -1895,7 +1337,6 @@ namespace sodium {
                 };
             }
         );
-#endif
         return apply(apply(apply(ba.map_(fa), bb), bc), bd);
     }
 
@@ -1903,11 +1344,7 @@ namespace sodium {
      * Lift a 5-argument function into cells.
      */
     template <class A, class B, class C, class D, class E, class F>
-#if defined(SODIUM_NO_CXX11)
-    cell<F> lift(const lambda5<F, const A&, const B&, const C&, const D&, const E&>& f,
-#else
     cell<F> lift(const std::function<F(const A&, const B&, const C&, const D&, const E&)>& f,
-#endif
         const cell<A>& ba,
         const cell<B>& bb,
         const cell<C>& bc,
@@ -1915,11 +1352,6 @@ namespace sodium {
         const cell<E>& be
     )
     {
-#if defined(SODIUM_NO_CXX11)
-        lambda1<lambda1<lambda1<lambda1<lambda1<lambda1<F, const E&>, const D&>, const C&>, const B&>, const A&>> fa(
-            new impl::lift5_handler1<A,B,C,D,E,F>(f)
-        );
-#else
         std::function<std::function<std::function<std::function<std::function<F(const E&)>(const D&)>(const C&)>(const B&)>(const A&)> fa(
             [f] (const A& a) -> std::function<std::function<std::function<std::function<F(const E&)>(const D&)>(const C&)>(const B&)> {
                 return [f, a] (const B& b) -> std::function<std::function<std::function<F(const E&)>(const D&)>(const C&)> {
@@ -1933,7 +1365,6 @@ namespace sodium {
                 };
             }
         );
-#endif
         return apply(apply(apply(apply(ba.map_(fa), bb), bc), bd), be);
     }
 
@@ -1941,11 +1372,7 @@ namespace sodium {
      * Lift a 6-argument function into cells.
      */
     template <class A, class B, class C, class D, class E, class F, class G>
-#if defined(SODIUM_NO_CXX11)
-    cell<G> lift(const lambda6<G, const A&, const B&, const C&, const D&, const E&, const F&>& fn,
-#else
     cell<G> lift(const std::function<G(const A&, const B&, const C&, const D&, const E&, const F&)>& fn,
-#endif
         const cell<A>& ba,
         const cell<B>& bb,
         const cell<C>& bc,
@@ -1954,9 +1381,6 @@ namespace sodium {
         const cell<F>& bf
     )
     {
-#if defined(SODIUM_NO_CXX11)
-        *** TO DO
-#else
         std::function<std::function<std::function<std::function<std::function<std::function<G(const F&)>(const E&)>(const D&)>(const C&)>(const B&)>(const A&)> fa(
             [fn] (const A& a) -> std::function<std::function<std::function<std::function<std::function<G(const F&)>(const E&)>(const D&)>(const C&)>(const B&)> {
                 return [fn, a] (const B& b) -> std::function<std::function<std::function<std::function<G(const F&)>(const E&)>(const D&)>(const C&)> {
@@ -1972,7 +1396,6 @@ namespace sodium {
                 };
             }
         );
-#endif
         return apply(apply(apply(apply(apply(ba.map_(fa), bb), bc), bd), be), bf);
     }
 
@@ -1980,11 +1403,7 @@ namespace sodium {
      * Lift a 7-argument function into cells.
      */
     template <class A, class B, class C, class D, class E, class F, class G, class H>
-#if defined(SODIUM_NO_CXX11)
-    cell<H> lift(const lambda7<H, const A&, const B&, const C&, const D&, const E&, const F&, const G&>& fn,
-#else
     cell<H> lift(const std::function<H(const A&, const B&, const C&, const D&, const E&, const F&, const G&)>& fn,
-#endif
         const cell<A>& ba,
         const cell<B>& bb,
         const cell<C>& bc,
@@ -1994,9 +1413,6 @@ namespace sodium {
         const cell<G>& bg
     )
     {
-#if defined(SODIUM_NO_CXX11)
-        *** TO DO
-#else
         std::function<std::function<std::function<std::function<std::function<std::function<std::function<H(const G&)>(const F&)>(const E&)>(const D&)>(const C&)>(const B&)>(const A&)> fa(
             [fn] (const A& a) -> std::function<std::function<std::function<std::function<std::function<std::function<H(const G&)>(const F&)>(const E&)>(const D&)>(const C&)>(const B&)> {
                 return [fn, a] (const B& b) -> std::function<std::function<std::function<std::function<std::function<H(const G&)>(const F&)>(const E&)>(const D&)>(const C&)> {
@@ -2014,34 +1430,8 @@ namespace sodium {
                 };
             }
         );
-#endif
         return apply(apply(apply(apply(apply(apply(ba.map_(fa), bb), bc), bd), be), bf), bg);
     }
-
-#if defined(SODIUM_NO_CXX11)
-    namespace impl {
-        template <class A>
-        struct split_post : i_lambda0<void> {
-            split_post(const std::list<A>& la, const SODIUM_SHARED_PTR<impl::node>& target)
-            : la(la), target(target) {}
-            std::list<A> la;
-            SODIUM_SHARED_PTR<impl::node> target;
-            virtual void operator () () const {
-                for (typename std::list<A>::iterator it = la.begin(); it != la.end(); ++it) {
-                    transaction trans;
-                    send(target, trans.impl(), light_ptr::create<A>(*it));
-                }
-            }
-        };
-        template <class A>
-        struct split_handler : i_lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&> {
-            virtual void operator () (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans, const light_ptr& ptr) const {
-                const std::list<A>& la = *ptr.cast_ptr<std::list<A> >(NULL);
-                trans->part->post(new split_post<A>(la, target));
-            }
-        };
-    }
-#endif
 
     /*!
      * Take each list item and put it into a new transaction of its own.
@@ -2055,12 +1445,6 @@ namespace sodium {
     {
         SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
         transaction trans1;
-#if defined(SODIUM_NO_CXX11)
-        lambda0<void>* kill = e.listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
-            new lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&>(
-                new impl::split_handler<A>
-            )
-#else
         auto kill = e.listen_raw(trans1.impl(), std::get<1>(p),
             new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
                 [] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
@@ -2072,7 +1456,6 @@ namespace sodium {
                         }
                     });
                 })
-#endif
             , false);
         return SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill);
     }

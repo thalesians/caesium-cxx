@@ -96,11 +96,7 @@ namespace sodium {
 #endif
     }
 
-#if defined(SODIUM_NO_CXX11)
-    void partition::post(const lambda0<void>& action)
-#else
     void partition::post(const std::function<void()>& action)
-#endif
     {
 #if !defined(SODIUM_SINGLE_THREADED)
         mx.lock();
@@ -124,11 +120,7 @@ namespace sodium {
             try {
 #endif
                 while (postQ.begin() != postQ.end()) {
-#if defined(SODIUM_NO_CXX11)
-                    lambda0<void> action = *postQ.begin();
-#else
                     std::function<void()> action = *postQ.begin();
-#endif
                     postQ.erase(postQ.begin());
 #if !defined(SODIUM_SINGLE_THREADED)
                     mx.unlock();
@@ -192,23 +184,15 @@ namespace sodium {
 
         void node::unlink(void* holder)
         {
-#if defined(SODIUM_NO_CXX11)
-            for (std::list<node::target>::iterator this_it = targets.begin(); this_it != targets.end(); ++this_it) {
-#else
             SODIUM_FORWARD_LIST<node::target>::iterator this_it;
             for (SODIUM_FORWARD_LIST<node::target>::iterator last_it = targets.before_begin(); true; last_it = this_it) {
                 this_it = last_it;
                 ++this_it;
                 if (this_it == targets.end())
                     break;
-#endif
                 if (this_it->h == holder) {
                     SODIUM_SHARED_PTR<node> targ = this_it->n;
-#if defined(SODIUM_NO_CXX11)
-                    targets.erase(this_it);
-#else
                     targets.erase_after(last_it);
-#endif
                     if (targ) {
                         boost::intrusive_ptr<listen_impl_func<H_STREAM> > li(
                             reinterpret_cast<listen_impl_func<H_STREAM>*>(listen_impl.get()));
@@ -268,11 +252,7 @@ namespace sodium {
                 if (pit == prioritizedQ.end()) break;
                 std::map<entryID, prioritized_entry>::iterator eit = entries.find(pit->second);
                 assert(eit != entries.end());
-#if defined(SODIUM_NO_CXX11)
-                lambda1<void, transaction_impl*> action = eit->second.action;
-#else
                 std::function<void(transaction_impl*)> action = eit->second.action;
-#endif
                 prioritizedQ.erase(pit);
                 entries.erase(eit);
                 action(this);
@@ -284,11 +264,7 @@ namespace sodium {
         }
 
         void transaction_impl::prioritized(const SODIUM_SHARED_PTR<node>& target,
-#if defined(SODIUM_NO_CXX11)
-                                           const lambda1<void, transaction_impl*>& f)
-#else
                                            const std::function<void(transaction_impl*)>& f)
-#endif
         {
             entryID id = next_entry_id;
             next_entry_id = next_entry_id.succ();
@@ -296,11 +272,7 @@ namespace sodium {
             prioritizedQ.insert(pair<rank_t, entryID>(rankOf(target), id));
         }
 
-#if defined(SODIUM_NO_CXX11)
-        void transaction_impl::last(const lambda0<void>& action)
-#else
         void transaction_impl::last(const std::function<void()>& action)
-#endif
         {
             lastQ.push_back(action);
         }
@@ -315,26 +287,6 @@ namespace sodium {
             part->depth++;
         }
         
-#if defined(SODIUM_NO_CXX11)
-        struct process_trans_handler : i_lambda0<void> {
-            process_trans_handler(transaction_impl* impl_) : impl_(impl_) {}
-            transaction_impl* impl_;
-            virtual void operator () () const {
-                impl_->process_transactional();
-                impl_->part->depth--;
-            }
-        };
-        struct process_post_handler : i_lambda0<void> {
-            process_post_handler(transaction_impl* impl_) : impl_(impl_) {}
-            transaction_impl* impl_;
-            virtual void operator () () const {
-                partition* part = impl_->part;
-                delete impl_;
-                part->process_post();
-            }
-        };
-#endif
-
         transaction_::~transaction_()
         {
             close();
@@ -349,10 +301,6 @@ namespace sodium {
                 if (part->depth == 1) {
                     policy::get_global()->dispatch(
                         impl__,
-#if defined(SODIUM_NO_CXX11)
-                        new process_trans_handler(impl__),
-                        new process_post_handler(impl__)
-#else
                         [impl__] () {
                             impl__->process_transactional();
                             impl__->part->depth--;
@@ -362,7 +310,6 @@ namespace sodium {
                             delete impl__;
                             part_->process_post();
                         }
-#endif
                     );
                 }
                 else
@@ -416,13 +363,8 @@ namespace sodium {
     }
 
     void simple_policy::dispatch(impl::transaction_impl* impl,
-#if defined(SODIUM_NO_CXX11)
-        const lambda0<void>& transactional,
-        const lambda0<void>& post)
-#else
         const std::function<void()>& transactional,
         const std::function<void()>& post)
-#endif
     {
         transactional();
 #if defined(SODIUM_SINGLE_THREADED)

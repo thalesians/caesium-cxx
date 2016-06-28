@@ -23,104 +23,10 @@
 #else
 #include <pthread/pthread.h>
 #endif
-#if defined(SODIUM_NO_CXX11)
-#include <boost/shared_ptr.hpp>
-#include <boost/weak_ptr.hpp>
-#include <boost/fusion/adapted/boost_tuple.hpp>
-#include <boost/fusion/include/boost_tuple.hpp>
-#else
 #include <forward_list>
 #include <tuple>
-#endif
 
 namespace sodium {
-
-#if defined(SODIUM_NO_CXX11)
-    template <class A>
-    struct i_lambda0
-    {
-        i_lambda0() {}
-        virtual ~i_lambda0() {}
-
-        virtual A operator () () const = 0;
-    };
-
-    template <class A>
-    struct lambda0 {
-        lambda0() {}
-        lambda0(i_lambda0<A>* f) : f(f) {}
-        A operator () () const { return (*f)(); }
-        SODIUM_SHARED_PTR<i_lambda0<A> > f;
-    };
-
-    template <class A, class B>
-    struct i_lambda1
-    {
-        i_lambda1() {}
-        virtual ~i_lambda1() {}
-
-        virtual A operator () (B b) const = 0;
-    };
-
-    template <class A, class B>
-    struct lambda1 {
-        lambda1() {}
-        lambda1(i_lambda1<A,B>* f) : f(f) {}
-        A operator () (B b) const { return (*f)(b); }
-        SODIUM_SHARED_PTR<i_lambda1<A,B> > f;
-    };
-
-    template <class A, class B, class C>
-    struct i_lambda2
-    {
-        i_lambda2() {}
-        virtual ~i_lambda2() {}
-
-        virtual A operator () (B b, C c) const = 0;
-    };
-
-    template <class A, class B, class C>
-    struct lambda2 {
-        lambda2() {}
-        lambda2(i_lambda2<A,B,C>* f) : f(f) {}
-        A operator () (B b, C c) const { return (*f)(b, c); }
-        SODIUM_SHARED_PTR<i_lambda2<A,B,C> > f;
-    };
-
-    template <class A, class B, class C, class D>
-    struct i_lambda3
-    {
-        i_lambda3() {}
-        virtual ~i_lambda3() {}
-
-        virtual A operator () (B b, C c, D d) const = 0;
-    };
-
-    template <class A, class B, class C, class D>
-    struct lambda3 {
-        lambda3() {}
-        lambda3(i_lambda3<A,B,C,D>* f) : f(f) {}
-        A operator () (B b, C c, D d) const { return (*f)(b, c, d); }
-        SODIUM_SHARED_PTR<i_lambda3<A,B,C,D> > f;
-    };
-
-    template <class A, class B, class C, class D, class E>
-    struct i_lambda4
-    {
-        i_lambda4() {}
-        virtual ~i_lambda4() {}
-
-        virtual A operator () (B b, C c, D d, E e) const = 0;
-    };
-
-    template <class A, class B, class C, class D, class E>
-    struct lambda4 {
-        lambda4() {}
-        lambda4(i_lambda4<A,B,C,D,E>* f) : f(f) {}
-        A operator () (B b, C c, D d, E e) const { return (*f)(b, c, d, e); }
-        SODIUM_SHARED_PTR<i_lambda4<A,B,C,D,E> > f;
-    };
-#endif
 
 #if !defined(SODIUM_SINGLE_THREADED)
     class mutex
@@ -155,13 +61,8 @@ namespace sodium {
         pthread_key_t key;
 #endif
         bool processing_post;
-#if defined(SODIUM_NO_CXX11)
-        std::list<lambda0<void> > postQ;
-        void post(const lambda0<void>& action);
-#else
         std::list<std::function<void()>> postQ;
         void post(const std::function<void()>& action);
-#endif
         void process_post();
     };
 
@@ -183,19 +84,11 @@ namespace sodium {
         class node;
         template <class Allocator>
         struct listen_impl_func {
-#if defined(SODIUM_NO_CXX11)
-            typedef lambda4<lambda0<void>*,
-                transaction_impl*,
-                const SODIUM_SHARED_PTR<impl::node>&,
-                const SODIUM_SHARED_PTR<holder>&,
-                bool> closure;
-#else
             typedef std::function<std::function<void()>*(
                 transaction_impl*,
                 const std::shared_ptr<impl::node>&,
                 const SODIUM_SHARED_PTR<holder>&,
                 bool)> closure;
-#endif
             listen_impl_func(closure* func_)
                 : func(func_) {}
             ~listen_impl_func()
@@ -204,20 +97,12 @@ namespace sodium {
             }
             count_set counts;
             closure* func;
-#if defined(SODIUM_NO_CXX11)
-            SODIUM_FORWARD_LIST<lambda0<void>*> cleanups;
-#else
             SODIUM_FORWARD_LIST<std::function<void()>*> cleanups;
-#endif
             inline void update_and_unlock(spin_lock* l) {
                 if (func && !counts.active()) {
                     counts.inc_strong();
                     l->unlock();
-#if defined(SODIUM_NO_CXX11)
-                    for (std::list<lambda0<void>*>::iterator it = cleanups.begin(); it != cleanups.end(); ++it) {
-#else
                     for (auto it = cleanups.begin(); it != cleanups.end(); ++it) {
-#endif
                         (**it)();
                         delete *it;
                     }
@@ -239,11 +124,7 @@ namespace sodium {
         class holder {
             public:
                 holder(
-#if defined(SODIUM_NO_CXX11)
-                    lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, transaction_impl*, const light_ptr&>* handler_
-#else
                     std::function<void(const std::shared_ptr<impl::node>&, transaction_impl*, const light_ptr&)>* handler_
-#endif
                 ) : handler(handler_) {}
                 ~holder() {
                     delete handler;
@@ -251,11 +132,7 @@ namespace sodium {
                 void handle(const SODIUM_SHARED_PTR<node>& target, transaction_impl* trans, const light_ptr& value) const;
 
             private:
-#if defined(SODIUM_NO_CXX11)
-                lambda3<void, const SODIUM_SHARED_PTR<impl::node>&, transaction_impl*, const light_ptr&>* handler;
-#else
                 std::function<void(const std::shared_ptr<impl::node>&, transaction_impl*, const light_ptr&)>* handler;
-#endif
         };
 
         struct H_STREAM {};
@@ -332,22 +209,13 @@ namespace sodium {
         rank_t rankOf(const SODIUM_SHARED_PTR<node>& target);
 
         struct prioritized_entry {
-#if defined(SODIUM_NO_CXX11)
-            prioritized_entry(const SODIUM_SHARED_PTR<node>& target_,
-                              const lambda1<void, transaction_impl*>& action_)
-#else
             prioritized_entry(const SODIUM_SHARED_PTR<node>& target_,
                               const std::function<void(transaction_impl*)>& action_)
-#endif
                 : target(target_), action(action_)
             {
             }
             SODIUM_SHARED_PTR<node> target;
-#if defined(SODIUM_NO_CXX11)
-            lambda1<void, transaction_impl*> action;
-#else
             std::function<void(transaction_impl*)> action;
-#endif
         };
 
         struct transaction_impl {
@@ -357,21 +225,12 @@ namespace sodium {
             entryID next_entry_id;
             std::map<entryID, prioritized_entry> entries;
             std::multiset<std::pair<rank_t, entryID>> prioritizedQ;
-#if defined(SODIUM_NO_CXX11)
-            std::list<lambda0<void> > lastQ;
-#else
             std::list<std::function<void()>> lastQ;
-#endif
             bool to_regen;
 
             void prioritized(const SODIUM_SHARED_PTR<impl::node>& target,
-#if defined(SODIUM_NO_CXX11)
-                             const lambda1<void, impl::transaction_impl*>& action);
-            void last(const lambda0<void>& action);
-#else
                              const std::function<void(impl::transaction_impl*)>& action);
             void last(const std::function<void()>& action);
-#endif
 
             void check_regen();
             void process_transactional();
@@ -398,15 +257,9 @@ namespace sodium {
          * Dispatch the processing for this transaction according to the policy.
          * Note that post() will delete impl, so don't reference it after that.
          */
-#if defined(SODIUM_NO_CXX11)
-        virtual void dispatch(impl::transaction_impl* impl,
-            const lambda0<void>& transactional,
-            const lambda0<void>& post) = 0;
-#else
         virtual void dispatch(impl::transaction_impl* impl,
             const std::function<void()>& transactional,
             const std::function<void()>& post) = 0;
-#endif
     };
 
     namespace impl {
@@ -448,13 +301,8 @@ namespace sodium {
         virtual impl::transaction_impl* current_transaction(partition* part);
         virtual void initiate(impl::transaction_impl* impl);
         virtual void dispatch(impl::transaction_impl* impl,
-#if defined(SODIUM_NO_CXX11)
-            const lambda0<void>& transactional,
-            const lambda0<void>& post);
-#else
             const std::function<void()>& transactional,
             const std::function<void()>& post);
-#endif
     };
 }  // end namespace sodium
 
