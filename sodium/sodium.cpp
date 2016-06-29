@@ -290,15 +290,19 @@ namespace sodium {
                 SODIUM_SHARED_PTR<cell_impl_concrete<cell_state> > impl(
                     new cell_impl_concrete<cell_state>(input, state, std::shared_ptr<cell_impl>())
                 );
+                SODIUM_WEAK_PTR<cell_impl_concrete<cell_state> > impl_weak(impl);
                 impl->kill =
                     input.listen_raw(trans0, SODIUM_SHARED_PTR<node>(new node(SODIUM_IMPL_RANK_T_MAX)),
                     new std::function<void(const std::shared_ptr<impl::node>&, transaction_impl*, const light_ptr&)>(
-                        [impl] (const std::shared_ptr<impl::node>& target, transaction_impl* trans, const light_ptr& ptr) {
-                            bool first = !impl->state.update;
-                            impl->state.update = boost::optional<light_ptr>(ptr);
-                            if (first)
-                                trans->last([impl] () { impl->state.finalize(); });
-                            send(target, trans, ptr);
+                        [impl_weak] (const std::shared_ptr<impl::node>& target, transaction_impl* trans, const light_ptr& ptr) {
+                            SODIUM_SHARED_PTR<cell_impl_concrete<cell_state> > impl_ = impl_weak.lock();
+                            if (impl_) {
+                                bool first = !impl_->state.update;
+                                impl_->state.update = boost::optional<light_ptr>(ptr);
+                                if (first)
+                                    trans->last([impl_] () { impl_->state.finalize(); });
+                                send(target, trans, ptr);
+                            }
                         })
                     , false);
                 return impl;
