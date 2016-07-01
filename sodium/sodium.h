@@ -434,6 +434,169 @@ namespace sodium {
             }
 
             /*!
+             * Lift a binary function into cells.
+             */
+            template <class B, class Fn>
+            cell<typename std::result_of<Fn(A,B)>::type> lift(const cell<B>& bb, const Fn& f) const
+            {
+                typedef typename std::result_of<Fn(A,B)>::type C;
+                std::function<std::function<C(const B&)>(const A&)> fa(
+                    [f] (const A& a) -> std::function<C(const B&)> {
+                        return [f, a] (const B& b) -> C { return f(a, b); };
+                    }
+                );
+                transaction trans;
+                return apply<B, C>(map(fa), bb);
+            }
+
+            /*!
+             * Lift a ternary function into cells.
+             */
+            template <class B, class C, class Fn>
+            cell<typename std::result_of<Fn(A,B,C)>::type> lift(
+                const cell<B>& bb,
+                const cell<C>& bc,
+                const Fn& f
+            ) const
+            {
+                typedef typename std::result_of<Fn(A,B,C)>::type D;
+                std::function<std::function<std::function<D(const C&)>(const B&)>(const A&)> fa(
+                    [f] (const A& a) -> std::function<std::function<D(const C&)>(const B&)> {
+                        return [f, a] (const B& b) -> std::function<D(const C&)> {
+                            return [f, a, b] (const C& c) -> D {
+                                return f(a,b,c);
+                            };
+                        };
+                    }
+                );
+                return apply(apply(map(fa), bb), bc);
+            }
+
+            /*!
+             * Lift a quaternary function into cells.
+             */
+            template <class B, class C, class D, class Fn>
+            cell<typename std::result_of<Fn(A,B,C,D)>::type> lift(
+                const cell<B>& bb,
+                const cell<C>& bc,
+                const cell<D>& bd,
+                const Fn& f
+            ) const
+            {
+                typedef typename std::result_of<Fn(A,B,C,D)>::type E;
+                std::function<std::function<std::function<std::function<E(const D&)>(const C&)>(const B&)>(const A&)> fa(
+                    [f] (const A& a) -> std::function<std::function<std::function<E(const D&)>(const C&)>(const B&)> {
+                        return [f, a] (const B& b) -> std::function<std::function<E(const D&)>(const C&)> {
+                            return [f, a, b] (const C& c) -> std::function<E(const D&)> {
+                                return [f, a, b, c] (const D& d) -> E {
+                                    return f(a,b,c,d);
+                                };
+                            };
+                        };
+                    }
+                );
+                return apply(apply(apply(map(fa), bb), bc), bd);
+            }
+
+            /*!
+             * Lift a 5-argument function into cells.
+             */
+            template <class B, class C, class D, class E, class Fn>
+            cell<typename std::result_of<Fn(A,B,C,D,E)>::type> lift(
+                const cell<B>& bb,
+                const cell<C>& bc,
+                const cell<D>& bd,
+                const cell<E>& be,
+                const Fn& f
+            ) const
+            {
+                typedef typename std::result_of<Fn(A,B,C,D,E)>::type F;
+                std::function<std::function<std::function<std::function<std::function<F(const E&)>(const D&)>(const C&)>(const B&)>(const A&)> fa(
+                    [f] (const A& a) -> std::function<std::function<std::function<std::function<F(const E&)>(const D&)>(const C&)>(const B&)> {
+                        return [f, a] (const B& b) -> std::function<std::function<std::function<F(const E&)>(const D&)>(const C&)> {
+                            return [f, a, b] (const C& c) -> std::function<std::function<F(const E&)>(const D&)> {
+                                return [f, a, b, c] (const D& d) -> std::function<F(const E&)> {
+                                    return [f, a, b, c, d] (const E& e) -> F {
+                                        return f(a,b,c,d,e);
+                                    };
+                                };
+                            };
+                        };
+                    }
+                );
+                return apply(apply(apply(apply(map(fa), bb), bc), bd), be);
+            }
+        
+            /*!
+             * Lift a 6-argument function into cells.
+             */
+            template <class B, class C, class D, class E, class F, class Fn>
+            cell<typename std::result_of<Fn(A,B,C,D,E,F)>::type> lift(
+                const cell<A>& ba,
+                const cell<B>& bb,
+                const cell<C>& bc,
+                const cell<D>& bd,
+                const cell<E>& be,
+                const cell<F>& bf,
+                const Fn& fn
+            ) const
+            {
+                typedef typename std::result_of<Fn(A,B,C,D,E,F)>::type G;
+                std::function<std::function<std::function<std::function<std::function<std::function<G(const F&)>(const E&)>(const D&)>(const C&)>(const B&)>(const A&)> fa(
+                    [fn] (const A& a) -> std::function<std::function<std::function<std::function<std::function<G(const F&)>(const E&)>(const D&)>(const C&)>(const B&)> {
+                        return [fn, a] (const B& b) -> std::function<std::function<std::function<std::function<G(const F&)>(const E&)>(const D&)>(const C&)> {
+                            return [fn, a, b] (const C& c) -> std::function<std::function<std::function<G(const F&)>(const E&)>(const D&)> {
+                                return [fn, a, b, c] (const D& d) -> std::function<std::function<G(const F&)>(const E&)> {
+                                    return [fn, a, b, c, d] (const E& e) -> std::function<G(const F&)> {
+                                        return [fn, a, b, c, d, e] (const F& f) -> G {
+                                            return fn(a,b,c,d,e,f);
+                                        };
+                                    };
+                                };
+                            };
+                        };
+                    }
+                );
+                return apply(apply(apply(apply(apply(map(fa), bb), bc), bd), be), bf);
+            }
+
+            /*!
+             * Lift a 7-argument function into cells.
+             */
+            template <class B, class C, class D, class E, class F, class G, class Fn>
+            cell<typename std::result_of<Fn(A,B,C,D,E,F,G)>::type> lift(
+                const cell<A>& ba,
+                const cell<B>& bb,
+                const cell<C>& bc,
+                const cell<D>& bd,
+                const cell<E>& be,
+                const cell<F>& bf,
+                const cell<G>& bg,
+                const Fn& fn
+            ) const
+            {
+                typedef typename std::result_of<Fn(A,B,C,D,E,F,G)>::type H;
+                std::function<std::function<std::function<std::function<std::function<std::function<std::function<H(const G&)>(const F&)>(const E&)>(const D&)>(const C&)>(const B&)>(const A&)> fa(
+                    [fn] (const A& a) -> std::function<std::function<std::function<std::function<std::function<std::function<H(const G&)>(const F&)>(const E&)>(const D&)>(const C&)>(const B&)> {
+                        return [fn, a] (const B& b) -> std::function<std::function<std::function<std::function<std::function<H(const G&)>(const F&)>(const E&)>(const D&)>(const C&)> {
+                            return [fn, a, b] (const C& c) -> std::function<std::function<std::function<std::function<H(const G&)>(const F&)>(const E&)>(const D&)> {
+                                return [fn, a, b, c] (const D& d) -> std::function<std::function<std::function<H(const G&)>(const F&)>(const E&)> {
+                                    return [fn, a, b, c, d] (const E& e) -> std::function<std::function<H(const G&)>(const F&)> {
+                                        return [fn, a, b, c, d, e] (const F& f) -> std::function<H(const G&)> {
+                                            return [fn, a, b, c, d, e, f] (const G& g) {
+                                                return fn(a,b,c,d,e,f,g);
+                                            };
+                                        };
+                                    };
+                                };
+                            };
+                        };
+                    }
+                );
+                return apply(apply(apply(apply(apply(apply(map(fa), bb), bc), bd), be), bf), bg);
+            }
+
+            /*!
              * Returns an stream giving the updates to a cell. If this cell was created
              * by a hold, then this gives you back an stream equivalent to the one that was held.
              */
@@ -447,7 +610,7 @@ namespace sodium {
              */
             stream<A> value() const {
                 transaction trans;
-                return stream<A>(value_(trans.impl())).coalesce();
+                return stream<A>(value_(trans.impl())).coalesce([] (const A&, const A& b) { return b; });
             }
 
             /*!
@@ -464,19 +627,23 @@ namespace sodium {
              */
             std::function<void()> listen(const std::function<void(const A&)>& handle) const {
                 transaction trans;
-                return stream<A>(value_(trans.impl())).coalesce().listen(handle);
+                return stream<A>(value_(trans.impl())).coalesce([] (const A&, const A& b) { return b; }).listen(handle);
             }
 
             /**
              * Transform a cell with a generalized state loop (a mealy machine). The function
              * is passed the input and the old state and returns the new state and output value.
+             *
+             * The supplied function should have the signature std::tuple<B, S>(A, S), where B
+             * is the return cell's type, and S is the state type.
              */
-            template <class S, class B>
-            cell<B> collect_lazy(
+            template <class S, class Fn>
+            cell<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect_lazy(
                 const std::function<S()>& initS,
-                const std::function<std::tuple<B, S>(const A&, const S&)>& f
+                const Fn& f
             ) const
             {
+                typedef typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type B;
                 transaction trans1;
                 auto ea = updates().coalesce([] (const A&, const A& snd) -> A { return snd; });
                 std::function<A()> za_lazy = sample_lazy();
@@ -503,14 +670,17 @@ namespace sodium {
             /**
              * Transform a cell with a generalized state loop (a mealy machine). The function
              * is passed the input and the old state and returns the new state and output value.
+             *
+             * The supplied function should have the signature std::tuple<B, S>(A, S), where B
+             * is the return cell's type, and S is the state type.
              */
-            template <class S, class B>
-            cell<B> collect(
+            template <class S, class Fn>
+            cell<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect(
                 const S& initS,
-                const std::function<std::tuple<B, S>(const A&, const S&)>& f
+                const Fn& f
             ) const
             {
-                return collect_lazy<S, B>([initS] () -> S { return initS; }, f);
+                return collect_lazy<S, Fn>([initS] () -> S { return initS; }, f);
             }
 
     };  // end class cell
@@ -621,6 +791,7 @@ namespace sodium {
                 return merge(s, [] (const A& l, const A& r) { return l; });
             }
 
+        private:
             /*!
              * If there's more than one firing in a single transaction, combine them into
              * one using the specified combining function.
@@ -640,16 +811,7 @@ namespace sodium {
                 ));
             }
 
-            /*!
-             * If there's more than one firing in a single transaction, keep only the latest one.
-             */
-            stream<A> coalesce() const
-            {
-                return coalesce(
-                        [] (const A&, const A& snd) -> A { return snd; }
-                    );
-            }
-
+        public:
             /*!
              * A variant of {@link merge(Stream)} that uses the specified function to combine simultaneous
              * streams.
@@ -711,9 +873,10 @@ namespace sodium {
              * current one, i.e. no changes from the current transaction are
              * taken.
              */
-            template <class B, class C>
-            stream<C> snapshot(const cell<B>& beh, const std::function<C(const A&, const B&)>& combine) const
+            template <class B, class Fn>
+            stream<typename std::result_of<Fn(A,B)>::type> snapshot(const cell<B>& beh, const Fn& combine) const
             {
+                typedef typename std::result_of<Fn(A,B)>::type C;
                 transaction trans;
                 return stream<C>(snapshot_(trans.impl(), beh,
                     [combine] (const light_ptr& a, const light_ptr& b) -> light_ptr {
@@ -722,37 +885,45 @@ namespace sodium {
                 ));
             }
 
-            template <class B, class C, class D>
-            stream<D> snapshot(const cell<B>& bc, const cell<C>& cc, const std::function<D(const A&, const B&, const C&)>& f) const
+            template <class B, class C, class Fn>
+            stream<typename std::result_of<Fn(A,B,C)>::type> snapshot(
+                const cell<B>& bc, const cell<C>& cc, const Fn& f) const
             {
-                return snapshot<B,D>(bc, [cc, f] (const A& a, const B& b) {
+                typedef typename std::result_of<Fn(A,B,C)>::type D;
+                return snapshot(bc, [cc, f] (const A& a, const B& b) {
                     return f(a, b, cc.sample());
                 });
             }
 
-            template <class B, class C, class D, class E>
-            stream<E> snapshot(const cell<B>& bc, const cell<C>& cc, const cell<D>& cd,
-                const std::function<E(const A&, const B&, const C&, const D&)>& f) const
+            template <class B, class C, class D, class Fn>
+            stream<typename std::result_of<Fn(A,B,C,D)>::type> snapshot(
+                const cell<B>& bc, const cell<C>& cc, const cell<D>& cd,
+                const Fn& f) const
             {
-                return snapshot<B,E>(bc, [cc, cd, f] (const A& a, const B& b) {
+                typedef typename std::result_of<Fn(A,B,C,D)>::type E;
+                return snapshot(bc, [cc, cd, f] (const A& a, const B& b) {
                     return f(a, b, cc.sample(), cd.sample());
                 });
             }
 
-            template <class B, class C, class D, class E, class F>
-            stream<F> snapshot(const cell<B>& bc, const cell<C>& cc, const cell<D>& cd, const cell<E>& ce,
-                const std::function<F(const A&, const B&, const C&, const D&, const E&)>& f) const
+            template <class B, class C, class D, class E, class Fn>
+            stream<typename std::result_of<Fn(A,B,C,D,E)>::type> snapshot(
+                const cell<B>& bc, const cell<C>& cc, const cell<D>& cd, const cell<E>& ce,
+                const Fn& f) const
             {
-                return snapshot<B,F>(bc, [cc, cd, ce, f] (const A& a, const B& b) {
+                typedef typename std::result_of<Fn(A,B,C,D,E)>::type F;
+                return snapshot(bc, [cc, cd, ce, f] (const A& a, const B& b) {
                     return f(a, b, cc.sample(), cd.sample(), ce.sample());
                 });
             }
 
-            template <class B, class C, class D, class E, class F, class G>
-            stream<G> snapshot(const cell<B>& bc, const cell<C>& cc, const cell<D>& cd, const cell<E>& ce, const cell<F>& cf,
-                const std::function<G(const A&, const B&, const C&, const D&, const E&, const F&)>& f) const
+            template <class B, class C, class D, class E, class F, class Fn>
+            stream<typename std::result_of<Fn(A,B,C,D,E,F)>::type> snapshot(
+                const cell<B>& bc, const cell<C>& cc, const cell<D>& cd, const cell<E>& ce, const cell<F>& cf,
+                const Fn& f) const
             {
-                return snapshot<B,G>(bc, [cc, cd, ce, cf, f] (const A& a, const B& b) {
+                typedef typename std::result_of<Fn(A,B,C,D,E,F)>::type G;
+                return snapshot(bc, [cc, cd, ce, cf, f] (const A& a, const B& b) {
                     return f(a, b, cc.sample(), cd.sample(), ce.sample(), cf.sample());
                 });
             }
@@ -765,7 +936,7 @@ namespace sodium {
             template <class B>
             stream<B> snapshot(const cell<B>& beh) const
             {
-                return snapshot<B, B>(beh,
+                return snapshot(beh,
                     [] (const A&, const B& b) { return b; }
                     );
             }
@@ -776,7 +947,7 @@ namespace sodium {
             stream<A> gate(const cell<bool>& g) const
             {
                 transaction trans;
-                return filter_optional<A>(snapshot<bool, boost::optional<A>>(
+                return filter_optional<A>(snapshot(
                     g,
                     [] (const A& a, const bool& gated) {
                         return gated ? boost::optional<A>(a) : boost::optional<A>();
@@ -787,13 +958,17 @@ namespace sodium {
             /*!
              * Adapt an stream to a new stream statefully.  Always outputs one output for each
              * input.
+             *
+             * The supplied function should have the signature std::tuple<B, S>(A, S), where B
+             * is the return cell's type, and S is the state type.
              */
-            template <class S, class B>
-            stream<B> collect_lazy(
+            template <class S, class Fn>
+            stream<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect_lazy(
                 const std::function<S()>& initS,
-                const std::function<SODIUM_TUPLE<B, S>(const A&, const S&)>& f
+                const Fn& f
             ) const
             {
+                typedef typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type B;
                 transaction trans1;
                 SODIUM_SHARED_PTR<impl::collect_state<S> > pState(new impl::collect_state<S>(initS));
                 SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
@@ -811,14 +986,17 @@ namespace sodium {
             /*!
              * Adapt an stream to a new stream statefully.  Always outputs one output for each
              * input.
+             *
+             * The supplied function should have the signature std::tuple<B, S>(A, S), where B
+             * is the return cell's type, and S is the state type.
              */
-            template <class S, class B>
-            stream<B> collect(
+            template <class S, class Fn>
+            stream<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect(
                 const S& initS,
-                const std::function<SODIUM_TUPLE<B, S>(const A&, const S&)>& f
+                const Fn& f
             ) const
             {
-                return collect_lazy<S,B>([initS] () -> S { return initS; }, f);
+                return collect_lazy<S,Fn>([initS] () -> S { return initS; }, f);
             }
 
             template <class B>
@@ -967,7 +1145,8 @@ namespace sodium {
         public:
             stream_sink()
             {
-                *static_cast<stream<A>*>(this) = stream<A>(impl.construct()).coalesce();
+                *static_cast<stream<A>*>(this) = stream<A>(impl.construct()).coalesce(
+                    [] (const A&, const A& b) { return b; });
             }
 
             stream_sink(const std::function<A(const A&, const A&)>& f) {
@@ -1246,6 +1425,10 @@ namespace sodium {
         return switch_c<A>(bba);
     }
 
+    template <class A, class B, class C>
+    cell<C> lift(const std::function<C(const A&, const B&)>& f, const cell<A>& ba, const cell<B>& bb)
+     __attribute__ ((deprecated));
+
     /*!
      * Lift a binary function into cells.
      */
@@ -1260,6 +1443,13 @@ namespace sodium {
         transaction trans;
         return apply<B, C>(ba.map(fa), bb);
     }
+
+    template <class A, class B, class C, class D>
+    cell<D> lift(const std::function<D(const A&, const B&, const C&)>& f,
+        const cell<A>& ba,
+        const cell<B>& bb,
+        const cell<C>& bc
+    )  __attribute__ ((deprecated));
 
     /*!
      * Lift a ternary function into cells.
@@ -1282,6 +1472,14 @@ namespace sodium {
         );
         return apply(apply(ba.map(fa), bb), bc);
     }
+
+    template <class A, class B, class C, class D, class E>
+    cell<E> lift(const std::function<E(const A&, const B&, const C&, const D&)>& f,
+        const cell<A>& ba,
+        const cell<B>& bb,
+        const cell<C>& bc,
+        const cell<D>& bd
+    ) __attribute__ ((deprecated));
 
     /*!
      * Lift a quaternary function into cells.
@@ -1307,6 +1505,15 @@ namespace sodium {
         );
         return apply(apply(apply(ba.map(fa), bb), bc), bd);
     }
+
+    template <class A, class B, class C, class D, class E, class F>
+    cell<F> lift(const std::function<F(const A&, const B&, const C&, const D&, const E&)>& f,
+        const cell<A>& ba,
+        const cell<B>& bb,
+        const cell<C>& bc,
+        const cell<D>& bd,
+        const cell<E>& be
+    ) __attribute__ ((deprecated));
 
     /*!
      * Lift a 5-argument function into cells.
@@ -1335,6 +1542,16 @@ namespace sodium {
         );
         return apply(apply(apply(apply(ba.map(fa), bb), bc), bd), be);
     }
+
+    template <class A, class B, class C, class D, class E, class F, class G>
+    cell<G> lift(const std::function<G(const A&, const B&, const C&, const D&, const E&, const F&)>& fn,
+        const cell<A>& ba,
+        const cell<B>& bb,
+        const cell<C>& bc,
+        const cell<D>& bd,
+        const cell<E>& be,
+        const cell<F>& bf
+    ) __attribute__ ((deprecated));
 
     /*!
      * Lift a 6-argument function into cells.
@@ -1366,6 +1583,17 @@ namespace sodium {
         );
         return apply(apply(apply(apply(apply(ba.map(fa), bb), bc), bd), be), bf);
     }
+
+    template <class A, class B, class C, class D, class E, class F, class G, class H>
+    cell<H> lift(const std::function<H(const A&, const B&, const C&, const D&, const E&, const F&, const G&)>& fn,
+        const cell<A>& ba,
+        const cell<B>& bb,
+        const cell<C>& bc,
+        const cell<D>& bd,
+        const cell<E>& be,
+        const cell<F>& bf,
+        const cell<G>& bg
+    ) __attribute__ ((deprecated));
 
     /*!
      * Lift a 7-argument function into cells.

@@ -35,7 +35,6 @@ class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST(value_const);
     CPPUNIT_TEST(constant_cell);
     CPPUNIT_TEST(value_then_map);
-    CPPUNIT_TEST(value_then_coalesce);
     CPPUNIT_TEST(value_then_snapshot);
     CPPUNIT_TEST(value_then_merge);
     CPPUNIT_TEST(value_then_filter1);

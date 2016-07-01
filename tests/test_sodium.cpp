@@ -190,7 +190,7 @@ void test_sodium::snapshot1()
     cell_sink<int> b(0);
     stream_sink<long> trigger;
     auto out = std::make_shared<vector<string>>();
-    auto unlisten = trigger.snapshot<int,string>(b, [out] (const long& x, const int& y) -> string {
+    auto unlisten = trigger.snapshot(b, [out] (const long& x, const int& y) -> string {
         char buf[129];
         sprintf(buf, "%ld %d", x, y);
         return buf;
@@ -213,7 +213,7 @@ void test_sodium::snapshot2()
     cell_sink<int> c(5);
     stream_sink<long> trigger;
     auto out = std::make_shared<vector<string>>();
-    auto unlisten = trigger.snapshot<int,int,string>(b, c, [out] (const long& x, const int& y, const int& z) -> string {
+    auto unlisten = trigger.snapshot(b, c, [out] (const long& x, const int& y, const int& z) -> string {
         char buf[129];
         sprintf(buf, "%ld %d %d", x, y, z);
         return buf;
@@ -291,20 +291,6 @@ template <class A>
 stream<A> doubleUp(const stream<A>& ea)
 {
     return ea.merge(ea);
-}
-
-void test_sodium::value_then_coalesce()
-{
-    cell_sink<int> b(9);
-    auto out = std::make_shared<vector<int>>();
-    transaction trans;
-    auto unlisten = b.value().coalesce([] (const int& fst, const int& snd) -> int { return snd; })
-        .listen([out] (const int& x) { out->push_back(x); });
-    trans.close();
-    b.send(2);
-    b.send(7);
-    unlisten();
-    CPPUNIT_ASSERT(vector<int>({ 9, 2, 7 }) == *out);
 }
 
 void test_sodium::value_then_snapshot()
@@ -495,9 +481,9 @@ void test_sodium::lift1()
     cell_sink<int> b(5);
     auto out = std::make_shared<vector<string>>();
     transaction trans;
-    auto unlisten = lift<int,int,string>([] (const int& a_, const int& b_) {
+    auto unlisten = a.lift(b, [] (const int& a_, const int& b_) {
         return fmtInt(a_)+" "+fmtInt(b_);
-    }, a, b).value().listen([out] (const string& x) {
+    }).value().listen([out] (const string& x) {
         out->push_back(x);
     });
     trans.close();
@@ -513,9 +499,9 @@ void test_sodium::lift_glitch()
     cell_sink<int> a(1);
     cell<int> a3 = a.map([] (const int& x) { return x * 3; });
     cell<int> a5 = a.map([] (const int& x) { return x * 5; });
-    cell<string> b = lift<int,int,string>([] (const int& x, const int& y) {
+    cell<string> b = a3.lift(a5, [] (const int& x, const int& y) {
         return fmtInt(x)+" "+fmtInt(y);
-    }, a3, a5);
+    });
     auto out = std::make_shared<vector<string>>();
     auto unlisten = b.value().listen([out] (const string& s) { out->push_back(s); });
     trans.close();
@@ -528,7 +514,7 @@ void test_sodium::hold_is_delayed()
 {
     stream_sink<int> e;
     cell<int> h = e.hold(0);
-    stream<string> pair = e.snapshot<int,string>(h, [] (const int& a, const int& b) { return fmtInt(a) + " " + fmtInt(b); });
+    stream<string> pair = e.snapshot(h, [] (const int& a, const int& b) { return fmtInt(a) + " " + fmtInt(b); });
     auto out = std::make_shared<vector<string>>();
     auto unlisten = pair.listen([out] (const string& s) { out->push_back(s); });
     e.send(2);
@@ -609,7 +595,7 @@ void test_sodium::loop_cell()
     stream_sink<int> ea;
     transaction trans;
     cell_loop<int> sum;
-    sum.loop(ea.snapshot<int,int>(sum, [] (const int& x, const int& y) { return x+y; }).hold(0));
+    sum.loop(ea.snapshot(sum, [] (const int& x, const int& y) { return x+y; }).hold(0));
     auto out = std::make_shared<vector<int>>();
     auto unlisten = sum.value().listen([out] (const int& x) { out->push_back(x); });
     trans.close();
@@ -626,7 +612,7 @@ void test_sodium::collect1()
 {
     stream_sink<int> ea;
     auto out = std::make_shared<vector<int>>();
-    stream<int> sum = ea.collect<int, int>(100, [] (const int& a, const int& s) {
+    stream<int> sum = ea.collect<int>(100, [] (const int& a, const int& s) -> tuple<int, int> {
         return tuple<int, int>(a+s, a+s);
     });
     auto unlisten = sum.listen([out] (const int& x) { out->push_back(x); });
@@ -644,7 +630,7 @@ void test_sodium::collect2()
     stream_sink<int> ea;
     auto out = std::make_shared<vector<int>>();
     transaction trans;
-    cell<int> sum = ea.hold(100).collect<int, int>(0, [] (const int& a, const int& s) {
+    cell<int> sum = ea.hold(100).collect<int>(0, [] (const int& a, const int& s) {
         return tuple<int, int>(a+s, a+s);
     });
     auto unlisten = sum.value().listen([out] (const int& x) { out->push_back(x); });
@@ -692,7 +678,7 @@ void test_sodium::split1()
         return tokens;
     }))
     // coalesce so we'll fail if split didn't put each string into its own transaction
-    .coalesce([] (const string& a, const string& b) { return b; });
+    /* .coalesce([] (const string& a, const string& b) { return b; }) */;
     auto unlisten = eo.listen([out] (const string& x) { out->push_back(x); });
     ea.send("the common cormorant");
     ea.send("or shag");
@@ -781,7 +767,7 @@ void test_sodium::loop_value_snapshot()
     cell<string> a("lettuce");
     transaction trans; 
     cell_loop<string> b;
-    auto eSnap = a.value().snapshot<string,string>(b, [] (const string& a_, const string& b_) {
+    auto eSnap = a.value().snapshot(b, [] (const string& a_, const string& b_) {
         return a_ + " " + b_;
     });
     b.loop(cell<string>("cheese"));
@@ -812,9 +798,9 @@ void test_sodium::lift_loop()
     transaction trans;
     cell_loop<string> a;
     cell_sink<string> b("kettle");
-    auto c = lift<string, string, string>([] (const string& a_, const string& b_) {
+    auto c = a.lift(b, [] (const string& a_, const string& b_) {
         return a_+" "+b_;
-    }, a, b);
+    });
     a.loop(cell<string>("tea"));
     auto unlisten = c.value().listen([out] (const string& x) { out->push_back(x); });
     trans.close();
@@ -881,8 +867,8 @@ void test_sodium::lift_from_simultaneous()
     transaction trans;
     cell_sink<int> b1(3);
     cell_sink<int> b2(5);
-    cell<int> sum = lift<int, int, int>(
-        [] (const int& a, const int& b) { return a + b; }, b1, b2);
+    cell<int> sum = b1.lift(b2,
+        [] (const int& a, const int& b) { return a + b; });
     auto out = std::make_shared<vector<int>>();
     auto kill = sum.value().listen([out] (const int& sum_) {
         out->push_back(sum_);
