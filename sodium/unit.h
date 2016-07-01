@@ -13,8 +13,8 @@ namespace sodium {
      */
     struct unit {
         unit() {}
-        bool operator == (const unit& other) const { return true; }
-        bool operator != (const unit& other) const { return false; }
+        bool operator == (const unit&) const { return true; }
+        bool operator != (const unit&) const { return false; }
     };
 };
 

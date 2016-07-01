@@ -53,12 +53,12 @@ namespace sodium {
         class count_set {
             private:
                 // disable copy constructor and assignment
-                count_set(const count_set& other)
+                count_set(const count_set&)
 #if !defined(SODIUM_CONSERVE_MEMORY)
                 : impl(0,0,0)
 #endif
                 {}
-                count_set& operator = (const count_set& other) { return *this; }
+                count_set& operator = (const count_set&) { return *this; }
 #if defined(SODIUM_CONSERVE_MEMORY)
                 count_set_impl impl;
                 void to_large() {

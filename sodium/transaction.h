@@ -34,8 +34,8 @@ namespace sodium {
     private:
         pthread_mutex_t mx;
         // ensure we don't copy or assign a mutex by value
-        mutex(const mutex& other) {}
-        mutex& operator = (const mutex& other) { return *this; }
+        mutex(const mutex&) {}
+        mutex& operator = (const mutex&) { return *this; }
     public:
         mutex();
         ~mutex();
@@ -266,8 +266,8 @@ namespace sodium {
         class transaction_ {
         private:
             transaction_impl* impl_;
-            transaction_(const transaction_& other) {}
-            transaction_& operator = (const transaction_& other) { return *this; };
+            transaction_(const transaction_&) {}
+            transaction_& operator = (const transaction_&) { return *this; };
         public:
             transaction_(partition* part);
             ~transaction_();
@@ -281,9 +281,9 @@ namespace sodium {
     {
         private:
             // Disallow copying
-            transaction(const transaction& other) : impl::transaction_(def_part::part()) {}
+            transaction(const transaction&) : impl::transaction_(def_part::part()) {}
             // Disallow copying
-            transaction& operator = (const transaction& other) { return *this; };
+            transaction& operator = (const transaction&) { return *this; };
         public:
             transaction() : impl::transaction_(def_part::part()) {}
             /*!
