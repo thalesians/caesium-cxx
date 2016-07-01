@@ -70,7 +70,7 @@ namespace sodium {
         stream<typename T::time> eAlarm = at(t, tAlarm);
         cell<typename T::time> now = clock(t);
         tAlarm.loop(
-            eAlarm.template snapshot<typename T::time, optional<typename T::time>>(
+            eAlarm.snapshot(
                 period,
                 [] (const typename T::time& t, const typename T::time& p) {
                     return optional<typename T::time>(t + p);
