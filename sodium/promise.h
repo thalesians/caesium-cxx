@@ -24,7 +24,7 @@ namespace sodium {
         }
         promise(const stream<A>& sDeliver_)
         : sDeliver(sDeliver_.once()),
-          oValue(this->sDeliver.map<boost::optional<A>>([] (const A& a) {
+          oValue(this->sDeliver.map([] (const A& a) {
                   return boost::optional<A>(a);
               }).hold(boost::optional<A>()))
         {
@@ -41,8 +41,8 @@ namespace sodium {
         promise<typename std::result_of<Fn(A)>::type> map(Fn f) const {
             typedef typename std::result_of<Fn(A)>::type B;
             return promise<B>(
-                sDeliver.template map<B>(f),
-                oValue.template map<boost::optional<B>>(
+                sDeliver.map(f),
+                oValue.map(
                     [f] (const boost::optional<A>& ob) {
                         return ob ? boost::optional<B>(f(ob.get()))
                                   : boost::optional<B>();

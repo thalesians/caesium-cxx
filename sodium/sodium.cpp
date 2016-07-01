@@ -539,7 +539,7 @@ namespace sodium {
                         // value().listen will always cause a sample to be fetched from the
                         // one we just switched to. The caller will be fetching our output
                         // using value().listen, and value() throws away all firings except
-                        // for the last one. Therefore, anything from the old input behaviour
+                        // for the last one. Therefore, anything from the old input cell
                         // that might have happened during this transaction will be suppressed.
                         KILL_ONCE(pKillInner);
                         const cell_& ba = *pa.cast_ptr<cell_>(NULL);

@@ -424,23 +424,11 @@ namespace sodium {
             }
 
             /*!
-             * Map a function over this behaviour to modify the output value.
+             * Map a function over this cell to modify the output value.
              */
-            template <class B>
-            cell<B> map(const std::function<B(const A&)>& f) const {
-                transaction trans;
-                return cell<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
-            }
-
-            /*!
-             * Map a function over this behaviour to modify the output value.
-             *
-             * g++-4.7.2 has a bug where, under a 'using namespace std' it will interpret
-             * b.template map<A>(f) as if it were std::map. If you get this problem, you can
-             * work around it with map_.
-             */
-            template <class B>
-            cell<B> map_(const std::function<B(const A&)>& f) const {
+            template <typename Fn>
+            cell<typename std::result_of<Fn(A)>::type> map(const Fn& f) const {
+                typedef typename std::result_of<Fn(A)>::type B;
                 transaction trans;
                 return cell<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
             }
@@ -585,29 +573,9 @@ namespace sodium {
              * Map a function over this stream to modify the output value. The function must be
              * pure (referentially transparent), that is, it must not have effects.
              */
-            template <class B>
-            stream<B> map(const std::function<B(const A&)>& f) const {
-                transaction trans;
-                return stream<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
-            }
-
-            /*!
-             * Map a function over this stream to modify the output value. Effects are allowed.
-             */
-            template <class B>
-            stream<B> map_effectful(const std::function<B(const A&)>& f) const {
-                return this->template map_<B>(f);  // Same as map() for now but this may change!
-            }
-
-            /*!
-             * Map a function over this stream to modify the output value.
-             *
-             * g++-4.7.2 has a bug where, under a 'using namespace std' it will interpret
-             * b.template map<A>(f) as if it were std::map. If you get this problem, you can
-             * work around it with map_.
-             */
-            template <class B>
-            stream<B> map_(const std::function<B(const A&)>& f) const {
+            template <typename Fn>
+            stream<typename std::result_of<Fn(A)>::type> map(const Fn& f) const {
+                typedef typename std::result_of<Fn(A)>::type B;
                 transaction trans;
                 return stream<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
             }
@@ -617,7 +585,7 @@ namespace sodium {
              */
             template <class B>
             stream<B> map_to(const B& value) {
-                return map<B>([value] (const A&) { return value; });
+                return map([value] (const A&) -> B { return value; });
             }
 
             /*!
@@ -919,7 +887,7 @@ namespace sodium {
              */
             stream<A> delay()
             {
-                return split<A>(map_<std::list<A> >(
+                return split<A>(map(
                         [] (const A& a) -> std::list<A> { return { a }; }
                     ));
             }
@@ -1290,7 +1258,7 @@ namespace sodium {
             }
         );
         transaction trans;
-        return apply<B, C>(ba.map_(fa), bb);
+        return apply<B, C>(ba.map(fa), bb);
     }
 
     /*!
@@ -1312,7 +1280,7 @@ namespace sodium {
                 };
             }
         );
-        return apply(apply(ba.map_(fa), bb), bc);
+        return apply(apply(ba.map(fa), bb), bc);
     }
 
     /*!
@@ -1337,7 +1305,7 @@ namespace sodium {
                 };
             }
         );
-        return apply(apply(apply(ba.map_(fa), bb), bc), bd);
+        return apply(apply(apply(ba.map(fa), bb), bc), bd);
     }
 
     /*!
@@ -1365,7 +1333,7 @@ namespace sodium {
                 };
             }
         );
-        return apply(apply(apply(apply(ba.map_(fa), bb), bc), bd), be);
+        return apply(apply(apply(apply(ba.map(fa), bb), bc), bd), be);
     }
 
     /*!
@@ -1396,7 +1364,7 @@ namespace sodium {
                 };
             }
         );
-        return apply(apply(apply(apply(apply(ba.map_(fa), bb), bc), bd), be), bf);
+        return apply(apply(apply(apply(apply(ba.map(fa), bb), bc), bd), be), bf);
     }
 
     /*!
@@ -1430,7 +1398,7 @@ namespace sodium {
                 };
             }
         );
-        return apply(apply(apply(apply(apply(apply(ba.map_(fa), bb), bc), bd), be), bf), bg);
+        return apply(apply(apply(apply(apply(apply(ba.map(fa), bb), bc), bd), be), bf), bg);
     }
 
     /*!
