@@ -28,6 +28,7 @@
 // fixed at the end of the transaction.
 
 namespace sodium {
+
     template <class A> class stream;
     template <class A> class cell;
     template <class A> class cell_sink;
@@ -43,6 +44,44 @@ namespace sodium {
     stream<A> switch_s(const cell<stream<A>>& bea);
     template <class T>
     cell<typename T::time> clock(const T& t);
+
+    template <class A>
+    class lazy {
+    private:
+        std::function<A()> f;
+    public:
+        lazy(const A& a) : f([a] () -> A { return a; }) {}
+        lazy(const std::function<A()>& f_) : f(f_) {}
+        A operator () () const { return f(); }
+
+        template <typename Fn>
+        lazy<typename std::result_of<Fn(A)>::type> map(const Fn& fn) const {
+            typedef typename std::result_of<Fn(A)>::type B;
+            const auto& a(*this);
+            return lazy<B>([fn, a] () { return fn(a()); });
+        }
+
+        template <typename B, typename Fn>
+        lazy<typename std::result_of<Fn(A,B)>::type> lift(const lazy<B>& b, const Fn& fn) const {
+            typedef typename std::result_of<Fn(A,B)>::type C;
+            const auto& a(*this);
+            return lazy<C>([fn, a, b] () { return fn(a(), b()); });
+        }
+
+        template <typename B, typename C, typename Fn>
+        lazy<typename std::result_of<Fn(A,B,C)>::type> lift(const lazy<B>& b, const lazy<C>& c, const Fn& fn) const {
+            typedef typename std::result_of<Fn(A,B,C)>::type D;
+            const auto& a(*this);
+            return lazy<D>([fn, a, b, c] () { return fn(a(), b(), c()); });
+        }
+
+        template <typename B, typename C, typename D, typename Fn>
+        lazy<typename std::result_of<Fn(A,B,C,D)>::type> lift(const lazy<B>& b, const lazy<C>& c, const lazy<D>& d, const Fn& fn) const {
+            typedef typename std::result_of<Fn(A,B,C,D)>::type E;
+            const auto& a(*this);
+            return lazy<E>([fn, a, b, c, d] () { return fn(a(), b(), c(), d()); });
+        }
+    };
 
     namespace impl {
 
@@ -346,12 +385,6 @@ namespace sodium {
 
         cell_ map_(transaction_impl* trans, const std::function<light_ptr(const light_ptr&)>& f,
             const cell_& beh);
-
-        template <class S>
-        struct collect_state {
-            collect_state(const std::function<S()>& s_lazy_) : s_lazy(s_lazy_) {}
-            std::function<S()> s_lazy;
-        };
     }  // end namespace impl
 
     template <class A>
@@ -406,12 +439,12 @@ namespace sodium {
                 return *impl->sample().template cast_ptr<A>(NULL);
             }
 
-            std::function<A()> sample_lazy() const {
+            lazy<A> sample_lazy() const {
                 const SODIUM_SHARED_PTR<impl::cell_impl>& impl_(this->impl);
-                return [impl_] () -> A {
+                return lazy<A>([impl_] () -> A {
                     transaction trans;
                     return *impl_->sample().template cast_ptr<A>(NULL);
-                };
+                });
             }
 
             /*!
@@ -639,32 +672,34 @@ namespace sodium {
              */
             template <class S, class Fn>
             cell<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect_lazy(
-                const std::function<S()>& initS,
+                const lazy<S>& initS,
                 const Fn& f
             ) const
             {
                 typedef typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type B;
                 transaction trans1;
                 auto ea = updates().coalesce([] (const A&, const A& snd) -> A { return snd; });
-                std::function<A()> za_lazy = sample_lazy();
+                lazy<A> za_lazy = sample_lazy();
                 std::function<SODIUM_TUPLE<B,S>()> zbs = [za_lazy, initS, f] () -> SODIUM_TUPLE<B,S> {
                     return f(za_lazy(), initS());
                 };
-                SODIUM_SHARED_PTR<impl::collect_state<S> > pState(new impl::collect_state<S>([zbs] () -> S {
+                SODIUM_SHARED_PTR<lazy<S> > pState(new lazy<S>([zbs] () -> S {
                     return SODIUM_TUPLE_GET<1>(zbs());
                 }));
                 SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
                 auto kill = updates().listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
                         [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
-                            SODIUM_TUPLE<B,S> outsSt = f(*ptr.cast_ptr<A>(NULL), pState->s_lazy());
+                            SODIUM_TUPLE<B,S> outsSt = f(*ptr.cast_ptr<A>(NULL), (*pState)());
                             const S& new_s = SODIUM_TUPLE_GET<1>(outsSt);
-                            pState->s_lazy = [new_s] () { return new_s; };
+                            *pState = lazy<S>(new_s);
                             send(target, trans2, light_ptr::create<B>(SODIUM_TUPLE_GET<0>(outsSt)));
                         }), false);
-                return stream<B>(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill)).hold_lazy([zbs] () -> B {
-                    return SODIUM_TUPLE_GET<0>(zbs());
-                });
+                return stream<B>(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill)).hold_lazy(
+                    lazy<S>([zbs] () -> B {
+                        return SODIUM_TUPLE_GET<0>(zbs());
+                    }
+                ));
             }
 
             /**
@@ -680,7 +715,7 @@ namespace sodium {
                 const Fn& f
             ) const
             {
-                return collect_lazy<S, Fn>([initS] () -> S { return initS; }, f);
+                return collect_lazy<S, Fn>(lazy<S>(initS), f);
             }
 
     };  // end class cell
@@ -862,7 +897,7 @@ namespace sodium {
                 return cell<A>(hold_(trans.impl(), light_ptr::create<A>(std::move(initA))));
             }
 
-            cell<A> hold_lazy(const std::function<A()>& initA) const
+            cell<A> hold_lazy(const lazy<A>& initA) const
             {
                 transaction trans;
                 return cell<A>(hold_lazy_(trans.impl(), [initA] () -> light_ptr { return light_ptr::create<A>(initA()); }));
@@ -964,20 +999,20 @@ namespace sodium {
              */
             template <class S, class Fn>
             stream<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect_lazy(
-                const std::function<S()>& initS,
+                const lazy<S>& initS,
                 const Fn& f
             ) const
             {
                 typedef typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type B;
                 transaction trans1;
-                SODIUM_SHARED_PTR<impl::collect_state<S> > pState(new impl::collect_state<S>(initS));
+                SODIUM_SHARED_PTR<lazy<S> > pState(new lazy<S>(initS));
                 SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
                 auto kill = listen_raw(trans1.impl(), std::get<1>(p),
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
                         [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
-                            auto outsSt = f(*ptr.cast_ptr<A>(NULL), pState->s_lazy());
+                            auto outsSt = f(*ptr.cast_ptr<A>(NULL), (*pState)());
                             const S& new_s = SODIUM_TUPLE_GET<1>(outsSt);
-                            pState->s_lazy = [new_s] () { return new_s; };
+                            *pState = lazy<S>(new_s);
                             send(target, trans2, light_ptr::create<B>(std::get<0>(outsSt)));
                         }), false);
                 return SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill);
@@ -996,7 +1031,7 @@ namespace sodium {
                 const Fn& f
             ) const
             {
-                return collect_lazy<S,Fn>([initS] () -> S { return initS; }, f);
+                return collect_lazy<S,Fn>(lazy<S>(initS), f);
             }
 
             template <class B>
@@ -1006,13 +1041,13 @@ namespace sodium {
             ) const
             {
                 transaction trans1;
-                SODIUM_SHARED_PTR<impl::collect_state<B> > pState(new impl::collect_state<B>(initB));
+                SODIUM_SHARED_PTR<lazy<B> > pState(new lazy<B>(initB));
                 SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
                 auto kill = listen_raw(trans1.impl(), SODIUM_TUPLE_GET<1>(p),
                     new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
                         [pState, f] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans2, const light_ptr& ptr) {
-                            B b = f(*ptr.cast_ptr<A>(NULL), pState->s_lazy());
-                            pState->s_lazy = [b] () { return b; };
+                            B b = f(*ptr.cast_ptr<A>(NULL), (*pState)());
+                            *pState = lazy<B>(b);
                             send(target, trans2, light_ptr::create<B>(b));
                         })
                     , false);
