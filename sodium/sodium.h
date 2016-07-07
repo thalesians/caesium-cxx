@@ -1098,11 +1098,21 @@ namespace sodium {
              * Delays each stream occurrence by putting it into a new transaction, using
              * the same method as split.
              */
-            stream<A> delay()
+            stream<A> defer() const
             {
                 return split<A>(map(
                         [] (const A& a) -> std::list<A> { return { a }; }
                     ));
+            }
+
+            /*!
+             * Delays each stream occurrence by putting it into a new transaction, using
+             * the same method as split.
+             * Renamed to defer();
+             */
+            stream<A> delay() const __attribute__ ((deprecated))
+            {
+                return this.defer();
             }
 
             /*!
