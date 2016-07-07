@@ -794,22 +794,6 @@ namespace sodium {
             }
 
             /*!
-             * Merge two streams of the same type into one, so that streams on either input appear
-             * on the returned stream.
-             * <p>
-             * In the case where two streams are simultaneous (i.e. both
-             * within the same transaction), the stream from <em>s</em> will take precedence, and
-             * the stream from <em>this</em> will be dropped.
-             * If you want to specify your own combining function, use {@link Stream#merge(Stream, Lambda2)}.
-             * merge(s) is equivalent to merge(s, (l, r) -&gt; r).
-             *
-             * DEPRECATED: Please replace a.merge(b) with b.or_else(a) - NOTE THE SWAPPED ARGUMENTS.
-             */
-            stream<A> merge(const stream<A>& s) const __attribute__ ((deprecated)) {
-                return merge(s, [] (const A& l, const A& r) { return r; });
-            }
-
-            /*!
              * Variant of merge that merges two streams and will drop an stream
              * in the simultaneous case.
              * <p>
@@ -824,6 +808,19 @@ namespace sodium {
              */
             stream<A> or_else(const stream<A>& s) const {
                 return merge(s, [] (const A& l, const A& r) { return l; });
+            }
+
+            /*!
+             * Merge a stream of unary functions with a signature like Arg(Arg), in the
+             * simultaneous case, composing them, with the function on the left going first.
+             */
+            template <class Arg>
+            stream<A> merge_functions(const stream<A>& s) const {
+                return merge(s, [] (const A& f, const A& g) -> A {
+                    return [f, g] (Arg a) -> Arg {
+                        return g(f(a));
+                    };
+                });
             }
 
         private:
@@ -1035,8 +1032,8 @@ namespace sodium {
             }
 
             template <class B>
-            stream<B> accum_e_lazy(
-                const std::function<B()>& initB,
+            stream<B> accum_s_lazy(
+                const lazy<B>& initB,
                 const std::function<B(const A&, const B&)>& f
             ) const
             {
@@ -1060,7 +1057,7 @@ namespace sodium {
                 const std::function<B(const A&, const B&)>& f
             ) const
             {
-                return accum_e_lazy<B>([initB] () -> B { return initB; }, f);
+                return accum_s_lazy<B>(lazy<B>(initB), f);
             }
 
             /*!
@@ -1079,6 +1076,48 @@ namespace sodium {
             ) const
             {
                 return accum_s(initB, f).hold(initB);
+            }
+
+            /*!
+             * Variant of accum_s that accumulates a stream of functions.
+             */
+            template<class B>
+            stream<B> accum_s(const B& initA) const
+            {
+                return this->accum_s<B>(initA, [] (const A& f, const B& a) -> B {
+                    return f(a);
+                });
+            }
+
+            /*!
+             * Variant of accum_s that accumulates a stream of functions - lazy variant.
+             */
+            template<class B>
+            stream<B> accum_s_lazy(const lazy<B>& initA) const
+            {
+                return this->accum_s_lazy<B>(initA, [] (const A& f, const B& a) -> B {
+                    return f(a);
+                });
+            }
+
+            /*!
+             * Variant of accum_s that accumulates a stream of functions.
+             */
+            template<class B>
+            cell<B> accum(const B& initA) const
+            {
+                transaction trans;
+                return this->accum_s<B>(initA).hold(initA);
+            }
+
+            /*!
+             * Variant of accum_s that accumulates a stream of functions.
+             */
+            template<class B>
+            cell<B> accum_lazy(const lazy<B>& initA) const
+            {
+                transaction trans;
+                return this->accum_s_lazy<B>(initA).hold_lazy(initA);
             }
 
             cell<int> count() const
