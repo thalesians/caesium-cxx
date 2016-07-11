@@ -204,7 +204,15 @@ namespace sodium {
             while (it != n->targets.end()) {
                 node::target* f = &*it;
                 trans1->prioritized(f->n, [f, a] (transaction_impl* trans2) {
-                    ((holder*)f->h)->handle(f->n, trans2, a);
+                    trans2->inCallback++;
+                    try {
+                        ((holder*)f->h)->handle(f->n, trans2, a);
+                        trans2->inCallback--;
+                    }
+                    catch (...) {
+                        trans2->inCallback--;
+                        throw;
+                    }
                 });
                 it++;
             }

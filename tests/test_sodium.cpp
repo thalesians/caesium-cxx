@@ -902,6 +902,19 @@ void test_sodium::stream_sink_combining()
     CPPUNIT_ASSERT(vector<int>({ 99, 2119, 15 }) == *out);
 }
 
+void test_sodium::cant_send_in_handler()
+{
+    stream_sink<int> sa;
+    stream_sink<int> sb;
+    auto kill = sa.listen([sb] (const int& i) {
+        sb.send(i);
+    });
+    // TO DO: Why can't C++ catch this exception?
+    CPPUNIT_ASSERT_THROW(sa.send(5), std::runtime_error);
+    kill();
+    CPPUNIT_FAIL("exception expected");
+}
+
 int main(int argc, char* argv[])
 {
     for (int i = 0; i < 1; i++) {

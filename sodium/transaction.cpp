@@ -227,7 +227,8 @@ namespace sodium {
 
         transaction_impl::transaction_impl(partition* part_)
             : part(part_),
-              to_regen(false)
+              to_regen(false),
+              inCallback(0)
         {
         }
 

@@ -67,6 +67,7 @@ class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST(move_semantics_hold);
     CPPUNIT_TEST(lift_from_simultaneous);
     CPPUNIT_TEST(stream_sink_combining);
+    CPPUNIT_TEST(cant_send_in_handler);
     CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -125,6 +126,7 @@ public:
     void move_semantics_hold();
     void lift_from_simultaneous();
     void stream_sink_combining();
+    void cant_send_in_handler();
 };
 
 #endif

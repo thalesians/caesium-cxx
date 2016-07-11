@@ -696,7 +696,7 @@ namespace sodium {
                             send(target, trans2, light_ptr::create<B>(SODIUM_TUPLE_GET<0>(outsSt)));
                         }), false);
                 return stream<B>(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill)).hold_lazy(
-                    lazy<S>([zbs] () -> B {
+                    lazy<B>([zbs] () -> B {
                         return SODIUM_TUPLE_GET<0>(zbs());
                     }
                 ));
@@ -1239,11 +1239,15 @@ namespace sodium {
 
             void send(const A& a) const {
                 transaction trans;
+                if (trans.impl()->inCallback > 0)
+                    throw std::runtime_error("You are not allowed to use send() inside a Sodium callback");
                 impl.send(trans.impl(), light_ptr::create<A>(a));
             }
 
             void send(A&& a) const {
                 transaction trans;
+                if (trans.impl()->inCallback > 0)
+                    throw std::runtime_error("You are not allowed to use send() inside a Sodium callback");
                 impl.send(trans.impl(), light_ptr::create<A>(std::move(a)));
             }
     };

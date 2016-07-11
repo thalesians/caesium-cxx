@@ -227,6 +227,7 @@ namespace sodium {
             std::multiset<std::pair<rank_t, entryID>> prioritizedQ;
             std::list<std::function<void()>> lastQ;
             bool to_regen;
+            int inCallback;
 
             void prioritized(const SODIUM_SHARED_PTR<impl::node>& target,
                              const std::function<void(impl::transaction_impl*)>& action);
