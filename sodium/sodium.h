@@ -1151,7 +1151,7 @@ namespace sodium {
              */
             stream<A> delay() const __attribute__ ((deprecated))
             {
-                return this.defer();
+                return this->defer();
             }
 
             /*!
