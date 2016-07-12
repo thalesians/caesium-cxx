@@ -8,6 +8,9 @@
 #define _SODIUM_CONFIG_H_
 
 #include <limits.h>  // for __WORDSIZE
+#if defined(SODIUM_EXTRA_INCLUDE)
+#include SODIUM_EXTRA_INCLUDE
+#endif
 
 #if __WORDSIZE == 32
 #define SODIUM_STRONG_BITS 1
@@ -27,5 +30,8 @@
 #define SODIUM_MAKE_TUPLE   std::make_tuple
 #define SODIUM_TUPLE_GET    std::get
 #define SODIUM_FORWARD_LIST std::forward_list
+#ifndef SODIUM_THROW
+#define SODIUM_THROW(text)  throw std::runtime_error(text)
+#endif
 
 #endif

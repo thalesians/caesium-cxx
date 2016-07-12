@@ -323,7 +323,7 @@ namespace sodium {
 
             void assertLooped() const {
                 if (!*pLooped)
-                    throw std::runtime_error("cell_loop sampled before it was looped");
+                    SODIUM_THROW("cell_loop sampled before it was looped");
             }
 
             virtual const light_ptr& sample() const { assertLooped(); return (*pLooped)->sample(); }
@@ -1240,14 +1240,14 @@ namespace sodium {
             void send(const A& a) const {
                 transaction trans;
                 if (trans.impl()->inCallback > 0)
-                    throw std::runtime_error("You are not allowed to use send() inside a Sodium callback");
+                    SODIUM_THROW("You are not allowed to use send() inside a Sodium callback");
                 impl.send(trans.impl(), light_ptr::create<A>(a));
             }
 
             void send(A&& a) const {
                 transaction trans;
                 if (trans.impl()->inCallback > 0)
-                    throw std::runtime_error("You are not allowed to use send() inside a Sodium callback");
+                    SODIUM_THROW("You are not allowed to use send() inside a Sodium callback");
                 impl.send(trans.impl(), light_ptr::create<A>(std::move(a)));
             }
     };
@@ -1414,7 +1414,7 @@ namespace sodium {
 #if defined(SODIUM_NO_EXCEPTIONS)
                     abort();
 #else
-                    throw std::runtime_error("stream_loop looped back more than once");
+                    SODIUM_THROW("stream_loop looped back more than once");
 #endif
                 }
             }
