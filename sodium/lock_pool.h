@@ -34,7 +34,7 @@ namespace sodium {
             inline void unlock() {
                 OSSpinLockUnlock(&sl);
             }
-#else
+#elif defined(HAVE_PTHREAD_SPIN_LOCK)
             bool initialized;
             pthread_spinlock_t sl;
             spin_lock() : initialized(true) {
@@ -48,6 +48,23 @@ namespace sodium {
             }
             inline void unlock() {
                 if (initialized) pthread_spin_unlock(&sl);
+            }
+#else
+            bool initialized;
+            pthread_mutex_t m;
+            spin_lock() : initialized(true) {
+                pthread_mutexattr_t attr;
+                pthread_mutexattr_init(&attr);
+                pthread_mutex_init(&m, &attr);
+            }
+            inline void lock() {
+                // Make sure nothing bad happens if this is called before the constructor.
+                // This can happen during static initialization if data structures that use
+                // this lock pool are declared statically.
+                if (initialized) pthread_mutex_lock(&m);
+            }
+            inline void unlock() {
+                if (initialized) pthread_mutex_unlock(&m);
             }
 #endif
         };
