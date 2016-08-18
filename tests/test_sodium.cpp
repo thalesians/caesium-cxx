@@ -909,7 +909,6 @@ void test_sodium::cant_send_in_handler()
     auto kill = sa.listen([sb] (const int& i) {
         sb.send(i);
     });
-    // TO DO: Why can't C++ catch this exception?
     try {
         sa.send(5);
         CPPUNIT_FAIL("exception expected");
