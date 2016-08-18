@@ -910,9 +910,13 @@ void test_sodium::cant_send_in_handler()
         sb.send(i);
     });
     // TO DO: Why can't C++ catch this exception?
-    CPPUNIT_ASSERT_THROW(sa.send(5), std::runtime_error);
-    kill();
-    CPPUNIT_FAIL("exception expected");
+    try {
+        sa.send(5);
+        CPPUNIT_FAIL("exception expected");
+    }
+    catch (const std::runtime_error&) {
+        kill();  // Pass!
+    }
 }
 
 int main(int argc, char* argv[])

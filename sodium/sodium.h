@@ -436,14 +436,18 @@ namespace sodium {
              */
             A sample() const {
                 transaction trans;
-                return *impl->sample().template cast_ptr<A>(NULL);
+                A a = *impl->sample().template cast_ptr<A>(NULL);
+                trans.close();
+                return a;
             }
 
             lazy<A> sample_lazy() const {
                 const SODIUM_SHARED_PTR<impl::cell_impl>& impl_(this->impl);
                 return lazy<A>([impl_] () -> A {
                     transaction trans;
-                    return *impl_->sample().template cast_ptr<A>(NULL);
+                    A a = *impl_->sample().template cast_ptr<A>(NULL);
+                    trans.close();
+                    return a;
                 });
             }
 
@@ -453,7 +457,9 @@ namespace sodium {
              */
             cell<A> add_cleanup(const std::function<void()>& cleanup) const {
                 transaction trans;
-                return updates().add_cleanup(cleanup).hold(sample());
+                cell<A> ca = updates().add_cleanup(cleanup).hold(sample());
+                trans.close();
+                return ca;
             }
 
             /*!
@@ -463,7 +469,9 @@ namespace sodium {
             cell<typename std::result_of<Fn(A)>::type> map(const Fn& f) const {
                 typedef typename std::result_of<Fn(A)>::type B;
                 transaction trans;
-                return cell<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
+                auto ca = cell<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
+                trans.close();
+                return ca;
             }
 
             /*!
@@ -479,7 +487,9 @@ namespace sodium {
                     }
                 );
                 transaction trans;
-                return apply<B, C>(map(fa), bb);
+                auto ca = apply<B, C>(map(fa), bb);
+                trans.close();
+                return ca;
             }
 
             /*!
@@ -643,7 +653,9 @@ namespace sodium {
              */
             stream<A> value() const {
                 transaction trans;
-                return stream<A>(value_(trans.impl())).coalesce([] (const A&, const A& b) { return b; });
+                stream<A> sa = stream<A>(value_(trans.impl())).coalesce([] (const A&, const A& b) { return b; });
+                trans.close();
+                return sa;
             }
 
             /*!
@@ -660,7 +672,9 @@ namespace sodium {
              */
             std::function<void()> listen(const std::function<void(const A&)>& handle) const {
                 transaction trans;
-                return stream<A>(value_(trans.impl())).coalesce([] (const A&, const A& b) { return b; }).listen(handle);
+                auto kill = stream<A>(value_(trans.impl())).coalesce([] (const A&, const A& b) { return b; }).listen(handle);
+                trans.close();
+                return kill;
             }
 
             /**
@@ -695,11 +709,13 @@ namespace sodium {
                             *pState = lazy<S>(new_s);
                             send(target, trans2, light_ptr::create<B>(SODIUM_TUPLE_GET<0>(outsSt)));
                         }), false);
-                return stream<B>(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill)).hold_lazy(
+                auto ca = stream<B>(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill)).hold_lazy(
                     lazy<B>([zbs] () -> B {
                         return SODIUM_TUPLE_GET<0>(zbs());
                     }
                 ));
+                trans1.close();
+                return ca;
             }
 
             /**
@@ -751,6 +767,7 @@ namespace sodium {
                         [handle] (const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr& ptr) {
                             handle(*ptr.cast_ptr<A>(NULL));
                         }), false);
+                trans1.close();
                 if (pKill != NULL) {
                     std::function<void()> kill(*pKill);
                     delete pKill;
@@ -782,7 +799,9 @@ namespace sodium {
             stream<typename std::result_of<Fn(A)>::type> map(const Fn& f) const {
                 typedef typename std::result_of<Fn(A)>::type B;
                 transaction trans;
-                return stream<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
+                auto sa = stream<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
+                trans.close();
+                return sa;
             }
 
             /*!
@@ -836,11 +855,13 @@ namespace sodium {
             stream<A> coalesce(const std::function<A(const A&, const A&)>& combine) const
             {
                 transaction trans;
-                return stream<A>(coalesce_(trans.impl(),
+                stream<A> sa(coalesce_(trans.impl(),
                     [combine] (const light_ptr& a, const light_ptr& b) -> light_ptr {
                         return light_ptr::create<A>(combine(*a.cast_ptr<A>(NULL), *b.cast_ptr<A>(NULL)));
                     }
                 ));
+                trans.close();
+                return sa;
             }
 
         public:
@@ -859,7 +880,9 @@ namespace sodium {
             stream<A> merge(const stream<A>& s, const std::function<A(const A&, const A&)>& f) const
             {
                 transaction trans;
-                return stream<A>(merge_(trans.impl(), s)).coalesce(f);
+                stream<A> sa = stream<A>(merge_(trans.impl(), s)).coalesce(f);
+                trans.close();
+                return sa;
             }
 
             /*!
@@ -869,11 +892,13 @@ namespace sodium {
             stream<A> filter(const std::function<bool(const A&)>& pred) const
             {
                 transaction trans;
-                return stream<A>(filter_(trans.impl(),
+                stream<A> sa = stream<A>(filter_(trans.impl(),
                     [pred] (const light_ptr& a) {
                         return pred(*a.cast_ptr<A>(NULL));
                     }
                   ));
+                trans.close();
+                return sa;
             }
 
             /*!
@@ -885,19 +910,25 @@ namespace sodium {
             cell<A> hold(const A& initA) const
             {
                 transaction trans;
-                return cell<A>(hold_(trans.impl(), light_ptr::create<A>(initA)));
+                cell<A> ca(hold_(trans.impl(), light_ptr::create<A>(initA)));
+                trans.close();
+                return ca;
             }
 
             cell<A> hold(A&& initA) const
             {
                 transaction trans;
-                return cell<A>(hold_(trans.impl(), light_ptr::create<A>(std::move(initA))));
+                cell<A> ca(hold_(trans.impl(), light_ptr::create<A>(std::move(initA))));
+                trans.close();
+                return ca;
             }
 
             cell<A> hold_lazy(const lazy<A>& initA) const
             {
                 transaction trans;
-                return cell<A>(hold_lazy_(trans.impl(), [initA] () -> light_ptr { return light_ptr::create<A>(initA()); }));
+                cell<A> ca(hold_lazy_(trans.impl(), [initA] () -> light_ptr { return light_ptr::create<A>(initA()); }));
+                trans.close();
+                return ca;
             }
 
             /*!
@@ -910,11 +941,13 @@ namespace sodium {
             {
                 typedef typename std::result_of<Fn(A,B)>::type C;
                 transaction trans;
-                return stream<C>(snapshot_(trans.impl(), beh,
+                auto sa = stream<C>(snapshot_(trans.impl(), beh,
                     [combine] (const light_ptr& a, const light_ptr& b) -> light_ptr {
                         return light_ptr::create<C>(combine(*a.cast_ptr<A>(NULL), *b.cast_ptr<B>(NULL)));
                     }
                 ));
+                trans.close();
+                return sa;
             }
 
             template <class B, class C, class Fn>
@@ -979,12 +1012,14 @@ namespace sodium {
             stream<A> gate(const cell<bool>& g) const
             {
                 transaction trans;
-                return filter_optional<A>(snapshot(
+                stream<A> sa = filter_optional<A>(snapshot(
                     g,
                     [] (const A& a, const bool& gated) {
                         return gated ? boost::optional<A>(a) : boost::optional<A>();
                     }
                 ));
+                trans.close();
+                return sa;
             }
 
             /*!
@@ -1012,7 +1047,9 @@ namespace sodium {
                             *pState = lazy<S>(new_s);
                             send(target, trans2, light_ptr::create<B>(std::get<0>(outsSt)));
                         }), false);
-                return SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill);
+                auto sa = SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill);
+                trans1.close();
+                return sa;
             }
 
             /*!
@@ -1048,7 +1085,9 @@ namespace sodium {
                             send(target, trans2, light_ptr::create<B>(b));
                         })
                     , false);
-                return stream<B>(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill));
+                stream<B> sb(SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill));
+                trans1.close();
+                return sb;
             }
 
             template <class B>
@@ -1107,7 +1146,9 @@ namespace sodium {
             cell<B> accum(const B& initA) const
             {
                 transaction trans;
-                return this->accum_s<B>(initA).hold(initA);
+                cell<B> cb = this->accum_s<B>(initA).hold(initA);
+                trans.close();
+                return cb;
             }
 
             /*!
@@ -1117,7 +1158,9 @@ namespace sodium {
             cell<B> accum_lazy(const lazy<B>& initA) const
             {
                 transaction trans;
-                return this->accum_s_lazy<B>(initA).hold_lazy(initA);
+                cell<B> cb = this->accum_s_lazy<B>(initA).hold_lazy(initA);
+                trans.close();
+                return cb;
             }
 
             cell<int> count() const
@@ -1130,7 +1173,9 @@ namespace sodium {
             stream<A> once() const
             {
                 transaction trans;
-                return stream<A>(once_(trans.impl()));
+                stream<A> sa(once_(trans.impl()));
+                trans.close();
+                return sa;
             }
 
             /*!
@@ -1161,9 +1206,11 @@ namespace sodium {
             stream<A> add_cleanup(const std::function<void()>& cleanup) const
             {
                 transaction trans;
-                return stream<A>(add_cleanup_(trans.impl(),
+                stream<A> sa(add_cleanup_(trans.impl(),
                     new std::function<void()>(cleanup)
                 ));
+                trans.close();
+                return sa;
             }
     };  // end class stream
 
@@ -1242,6 +1289,7 @@ namespace sodium {
                 if (trans.impl()->inCallback > 0)
                     SODIUM_THROW("You are not allowed to use send() inside a Sodium callback");
                 impl.send(trans.impl(), light_ptr::create<A>(a));
+                trans.close();
             }
 
             void send(A&& a) const {
@@ -1249,6 +1297,7 @@ namespace sodium {
                 if (trans.impl()->inCallback > 0)
                     SODIUM_THROW("You are not allowed to use send() inside a Sodium callback");
                 impl.send(trans.impl(), light_ptr::create<A>(std::move(a)));
+                trans.close();
             }
     };
 
@@ -1264,13 +1313,15 @@ namespace sodium {
     stream<A> filter_optional(const stream<boost::optional<A>>& input)
     {
         transaction trans;
-        return impl::filter_optional_(trans.impl(), input, [] (const light_ptr& poa) -> boost::optional<light_ptr> {
+        stream<A> sa = impl::filter_optional_(trans.impl(), input, [] (const light_ptr& poa) -> boost::optional<light_ptr> {
             const boost::optional<A>& oa = *poa.cast_ptr<boost::optional<A>>(NULL);
             if (oa)
                 return boost::optional<light_ptr>(light_ptr::create<A>(oa.get()));
             else
                 return boost::optional<light_ptr>();
         });
+        trans.close();
+        return sa;
     }
 
     /*!
@@ -1290,12 +1341,14 @@ namespace sodium {
             {
                 transaction trans;
                 this->impl = SODIUM_SHARED_PTR<impl::cell_impl>(hold(trans.impl(), light_ptr::create<A>(initA), e));
+                trans.close();
             }
 
             cell_sink(A&& initA)
             {
                 transaction trans;
                 this->impl = SODIUM_SHARED_PTR<impl::cell_impl>(hold(trans.impl(), light_ptr::create<A>(std::move(initA)), e));
+                trans.close();
             }
 
             void send(const A& a) const
@@ -1330,7 +1383,7 @@ namespace sodium {
         const cell<A>& ba)
     {
         transaction trans;
-        return cell<B>(impl::apply(
+        cell<B> cb = cell<B>(impl::apply(
             trans.impl(),
             impl::map_(trans.impl(),
                 [] (const light_ptr& pf) -> light_ptr {
@@ -1342,6 +1395,8 @@ namespace sodium {
                 bf),
             ba
         ));
+        trans.close();
+        return cb;
     }
 
     /*!
@@ -1409,6 +1464,7 @@ namespace sodium {
                     SODIUM_SHARED_PTR<impl::node> target(i->target);
                     *i->pKill = e.listen_raw(trans.impl(), target, NULL, false);
                     i->looped = true;
+                    trans.close();
                 }
                 else {
 #if defined(SODIUM_NO_EXCEPTIONS)
@@ -1472,7 +1528,9 @@ namespace sodium {
     stream<A> switch_s(const cell<stream<A>>& bea)
     {
         transaction trans;
-        return stream<A>(impl::switch_s(trans.impl(), bea));
+        stream<A> sa(impl::switch_s(trans.impl(), bea));
+        trans.close();
+        return sa;
     }
 
     template <class A>
@@ -1498,7 +1556,9 @@ namespace sodium {
     cell<A> switch_c(const cell<cell<A>>& bba)
     {
         transaction trans;
-        return cell<A>(impl::switch_c(trans.impl(), bba));
+        cell<A> ca(impl::switch_c(trans.impl(), bba));
+        trans.close();
+        return ca;
     }
 
     template <class A>
@@ -1529,7 +1589,9 @@ namespace sodium {
             }
         );
         transaction trans;
-        return apply<B, C>(ba.map(fa), bb);
+        cell<C> cc = apply<B, C>(ba.map(fa), bb);
+        trans.close();
+        return cc;
     }
 
     template <class A, class B, class C, class D>
@@ -1737,11 +1799,14 @@ namespace sodium {
                         for (auto it = la.begin(); it != la.end(); ++it) {
                             transaction trans3;
                             send(target, trans3.impl(), light_ptr::create<A>(*it));
+                            trans3.close();
                         }
                     });
                 })
             , false);
-        return SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill);
+        stream<A> sa = SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill);
+        trans1.close();
+        return sa;
     }
 
     // New type names:

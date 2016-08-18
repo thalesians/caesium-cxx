@@ -12,8 +12,6 @@
 #include <sodium/sodium.h>
 #include <string>
 
-#undef ENABLE_cant_send_in_handler
-
 class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST_SUITE(test_sodium);
     // stream tests
@@ -69,9 +67,7 @@ class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST(move_semantics_hold);
     CPPUNIT_TEST(lift_from_simultaneous);
     CPPUNIT_TEST(stream_sink_combining);
-#if defined(ENABLE_cant_send_in_handler)
     CPPUNIT_TEST(cant_send_in_handler);
-#endif
     CPPUNIT_TEST_SUITE_END();
 
 public:
