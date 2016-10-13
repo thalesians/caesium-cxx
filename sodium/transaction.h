@@ -74,7 +74,7 @@ namespace sodium {
 
         typedef unsigned long rank_t;
         #define SODIUM_IMPL_RANK_T_MAX ULONG_MAX
-        
+
         class holder;
 
         class node;
@@ -304,4 +304,3 @@ namespace sodium {
 }  // end namespace sodium
 
 #endif
-
