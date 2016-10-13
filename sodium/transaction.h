@@ -18,11 +18,7 @@
 #include <set>
 #include <list>
 #include <memory>
-#ifdef __linux
 #include <pthread.h>
-#else
-#include <pthread/pthread.h>
-#endif
 #include <forward_list>
 #include <tuple>
 
