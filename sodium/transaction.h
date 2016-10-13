@@ -18,11 +18,7 @@
 #include <set>
 #include <list>
 #include <memory>
-#ifdef __linux
 #include <pthread.h>
-#else
-#include <pthread/pthread.h>
-#endif
 #include <forward_list>
 #include <tuple>
 
@@ -78,7 +74,7 @@ namespace sodium {
 
         typedef unsigned long rank_t;
         #define SODIUM_IMPL_RANK_T_MAX ULONG_MAX
-        
+
         class holder;
 
         class node;
@@ -308,4 +304,3 @@ namespace sodium {
 }  // end namespace sodium
 
 #endif
-

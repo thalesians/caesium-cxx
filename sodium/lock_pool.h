@@ -82,13 +82,7 @@ namespace sodium {
         	return &lock_pool[0];
 #else
             spin_lock* l = &lock_pool[(uint32_t)((uint32_t)
-	#if __WORDSIZE == 32
-                (addr)
-	#elif __WORDSIZE == 64
-                (uint64_t)(addr)
-	#else
-	#error This architecture is not supported
-    #endif
+                (uintptr_t)(addr)
                 * (uint32_t)2654435761U) >> (32 - SODIUM_IMPL_LOCK_POOL_BITS)];
             l->lock();
             return l;
@@ -98,4 +92,3 @@ namespace sodium {
 }
 
 #endif
-
