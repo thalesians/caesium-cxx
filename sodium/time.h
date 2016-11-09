@@ -45,8 +45,8 @@ namespace sodium {
 
         template <typename T>
         struct event {
-            event(T t_, SODIUM_SHARED_PTR<impl::node> sAlarm_)
-                : t(t_), sAlarm(sAlarm_)
+            event(T t_, stream_sink<T> sAlarm_snk_)
+                : t(t_), sAlarm_snk(sAlarm_snk_)
             {
                 seq = ++next_seq;
             }
@@ -63,7 +63,7 @@ namespace sodium {
                 return seq == other.seq;
             }
             T t;
-            SODIUM_SHARED_PTR<impl::node> sAlarm;
+            stream_sink<T> sAlarm_snk;
             long long seq;  // Used to guarantee uniqueness
         };
 
@@ -74,20 +74,22 @@ namespace sodium {
                 cell<T> time_,
                 std::shared_ptr<timer_system_impl<T>> impl_,
                 std::shared_ptr<priority_queue<event<T>>> event_queue_
-            ) : time(time_), impl(impl_), event_queue(event_queue_) {}
+            ) : time(time_), impl(impl_), event_queue(event_queue_), lock(new mutex) {}
 
         private:
             struct at_state {
-                at_state() : sampled(false) {}
+                at_state() {}
                 boost::optional<event<T>> current;
                 boost::optional<std::function<void()>> cancel_current;
-                bool sampled;
                 boost::optional<T> tAl;
-                void do_cancel(const std::shared_ptr<priority_queue<event<T>>>& event_queue)
+                void do_cancel(const std::shared_ptr<priority_queue<event<T>>>& event_queue,
+                               const std::shared_ptr<mutex>& lock)
                 {
                     if (this->cancel_current) {
                         this->cancel_current.get()();
+                        lock->lock();
                         event_queue->remove(this->current.get());
+                        lock->unlock();
                     }
                     this->cancel_current = boost::optional<std::function<void()>>();
                     this->current = boost::optional<event<T>>();
@@ -99,45 +101,33 @@ namespace sodium {
             {
                 transaction trans0;
 
-                SODIUM_TUPLE<stream_,SODIUM_SHARED_PTR<node> > p = unsafe_new_stream();
-
-                SODIUM_SHARED_PTR<node> sAlarm = std::get<1>(p);
+                stream_sink<T> sAlarm_snk;
 
                 std::shared_ptr<at_state> state(new at_state);
                 const auto& impl_(this->impl);
                 const auto& event_queue_(this->event_queue);
-                auto updateTimer = [state, impl_, event_queue_, tAlarm, sAlarm] (sodium::impl::transaction_impl*) {
-                    state->do_cancel(event_queue_);
-                    if (!state->sampled) {
-                        state->sampled = true;
-                        state->tAl = tAlarm.sample();
-                    }
-                    if (state->tAl) {
-                        const auto& tAl_ = state->tAl.get();
-                        state->current = boost::make_optional(event<T>(tAl_, sAlarm));
+                const auto& lock_(this->lock);
+                auto kill = tAlarm.value().listen(
+                        [state, impl_, event_queue_, lock_, tAlarm, sAlarm_snk] (const boost::optional<T>& o_tAl) {
+                    state->do_cancel(event_queue_, lock_);
+                    if (o_tAl) {
+                        const auto& tAl = o_tAl.get();
+                        state->current = boost::make_optional(event<T>(tAl, sAlarm_snk));
+                        lock_->lock();
                         event_queue_->push(state->current.get());
-                        state->cancel_current = impl_->set_timer(tAl_, [] () {
+                        lock_->unlock();
+                        state->cancel_current = impl_->set_timer(tAl, [] () {
                                     // Open and close a transaction to trigger queued
                                     // events to run.
                                     transaction trans;
                                     trans.close();
                                 });
                     }
-                };
-
-                auto kill = tAlarm.updates().listen_raw(trans0.impl(), sAlarm,
-                    new std::function<void(const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
-                        [state, updateTimer, event_queue_] (const SODIUM_SHARED_PTR<impl::node>& target, impl::transaction_impl* trans1, const light_ptr& ptr) {
-                            state->tAl = *ptr.cast_ptr<boost::optional<T>>(nullptr);
-                            state->sampled = true;
-                            updateTimer(trans1);
-                        }), false);
-
-                trans0.prioritized(sAlarm, updateTimer);
-                auto sa = SODIUM_TUPLE_GET<0>(p).unsafe_add_cleanup(kill,
-                    new std::function<void()>([state, event_queue_] () {
-                        state->do_cancel(event_queue_);
-                    }));
+                });
+                auto sa = sAlarm_snk.add_cleanup([kill, state, event_queue_, lock_] () {
+                    kill();
+                    state->do_cancel(event_queue_, lock_);
+                });
                 trans0.close();
                 return sa;
             }
@@ -145,6 +135,7 @@ namespace sodium {
         private:
             std::shared_ptr<timer_system_impl<T>> impl;
             std::shared_ptr<priority_queue<event<T>>> event_queue;
+            std::shared_ptr<mutex> lock;
         };
     }
 
@@ -177,10 +168,7 @@ namespace sodium {
                         const auto& e = o_event.get();
                         // Two separate transactions
                         time_snk.send(e.t);
-                        {
-                            transaction trans1;
-                            send(e.sAlarm, trans1.impl(), light_ptr::create<T>(e.t));
-                        }
+                        e.sAlarm_snk.send(e.t);
                     }
                     else
                         break;

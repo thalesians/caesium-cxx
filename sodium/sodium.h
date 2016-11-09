@@ -87,7 +87,6 @@ namespace sodium {
 
         class cell_;
         struct cell_impl;
-        template <typename T> class timer_system_base;
 
         class stream_ {
         friend class cell_;
@@ -109,7 +108,6 @@ namespace sodium {
         friend stream<A> sodium::split(const stream<std::list<A>>& e);
         friend stream_ filter_optional_(transaction_impl* trans, const stream_& input,
             const std::function<boost::optional<light_ptr>(const light_ptr&)>& f);
-        template <typename T> friend class timer_system_base;
 
         protected:
             boost::intrusive_ptr<listen_impl_func<H_STREAM> > p_listen_impl;
@@ -750,7 +748,6 @@ namespace sodium {
         template <typename AA> friend stream<AA> switch_s(const cell<stream<AA>>& bea);
         template <typename AA> friend stream<AA> split(const stream<std::list<AA>>& e);
         template <typename AA> friend class sodium::stream_loop;
-        template <class T> friend class impl::timer_system_base;
         public:
             /*!
              * The 'never' stream (that never fires).
