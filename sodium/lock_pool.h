@@ -13,7 +13,7 @@
 #include <libkern/OSAtomic.h>
 #elif defined(__TI_COMPILER_VERSION__)
 #else
-#include <pthread.h>
+#include <mutex>
 #endif
 #include <stdint.h>
 #include <limits.h>
@@ -51,20 +51,17 @@ namespace sodium {
             }
 #else
             bool initialized;
-            pthread_mutex_t m;
+            std::mutex m;
             spin_lock() : initialized(true) {
-                pthread_mutexattr_t attr;
-                pthread_mutexattr_init(&attr);
-                pthread_mutex_init(&m, &attr);
             }
             inline void lock() {
                 // Make sure nothing bad happens if this is called before the constructor.
                 // This can happen during static initialization if data structures that use
                 // this lock pool are declared statically.
-                if (initialized) pthread_mutex_lock(&m);
+                if (initialized) m.lock();
             }
             inline void unlock() {
-                if (initialized) pthread_mutex_unlock(&m);
+                if (initialized) m.unlock();
             }
 #endif
         };

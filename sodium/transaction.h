@@ -18,44 +18,22 @@
 #include <set>
 #include <list>
 #include <memory>
-#include <pthread.h>
+#include <mutex>
 #include <forward_list>
 #include <tuple>
 
 namespace sodium {
 
-#if !defined(SODIUM_SINGLE_THREADED)
-    class mutex
-    {
-    private:
-        pthread_mutex_t mx;
-        // ensure we don't copy or assign a mutex by value
-        mutex(const mutex&) {}
-        mutex& operator = (const mutex&) { return *this; }
-    public:
-        mutex();
-        ~mutex();
-        void lock()
-        {
-            pthread_mutex_lock(&mx);
-        }
-        void unlock()
-        {
-            pthread_mutex_unlock(&mx);
-        }
-    };
-#endif
+    class transaction_impl;
 
     struct partition {
         partition();
         ~partition();
 #if !defined(SODIUM_SINGLE_THREADED)
-        mutex mx;
+        std::recursive_mutex mx;
 #endif
         int depth;
-#if !defined(SODIUM_SINGLE_THREADED)
-        pthread_key_t key;
-#endif
+
         bool processing_post;
         std::list<std::function<void()>> postQ;
         void post(std::function<void()> action);
