@@ -346,17 +346,16 @@ namespace sodium {
                 partition* part = impl__->part;
                 if (part->depth == 1) {
                     impl__->process_transactional();
-                    impl__->part->depth--;
+                    part->depth--;
 #if defined(SODIUM_SINGLE_THREADED)
                     global_transaction = NULL;
 #else
                     pthread_setspecific(impl__->part->key, NULL);
 #endif
-                    partition* part_ = impl__->part;
                     delete impl__;
-                    part_->process_post();
+                    part->process_post();
 #if !defined(SODIUM_SINGLE_THREADED)
-                    part_->mx.unlock();
+                    part->mx.unlock();
 #endif
                 }
                 else
