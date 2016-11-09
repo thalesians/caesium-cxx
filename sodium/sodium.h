@@ -23,6 +23,11 @@
 
 #define SODIUM_CONSTANT_OPTIMIZATION
 
+#ifdef WIN32
+//maybe replace this with c++14 attributes..
+#define __attribute__(x)
+#endif
+
 // TO DO:
 // the sample_lazy() mechanism is not correct yet. The lazy value needs to be
 // fixed at the end of the transaction.

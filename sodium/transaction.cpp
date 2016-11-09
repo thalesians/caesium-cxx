@@ -65,20 +65,7 @@ namespace sodium {
 
     }
 
-#if !defined(SODIUM_SINGLE_THREADED)
-    mutex::mutex()
-    {
-        pthread_mutexattr_t attr;
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-        pthread_mutex_init(&mx, &attr);
-    }
-
-    mutex::~mutex()
-    {
-        pthread_mutex_destroy(&mx);
-    }
-#endif
+	thread_local std::map<partition*, impl::transaction_impl*> transaction_impl_map;
 
     partition::partition()
         : depth(0),
@@ -87,7 +74,7 @@ namespace sodium {
           shutting_down(false)
     {
 #if !defined(SODIUM_SINGLE_THREADED)
-        pthread_key_create(&key, NULL);
+		transaction_impl_map[this] = NULL;
 #endif
     }
                             
@@ -96,7 +83,7 @@ namespace sodium {
         shutting_down = true;
         on_start_hooks.clear();
 #if !defined(SODIUM_SINGLE_THREADED)
-        pthread_key_delete(key);
+		transaction_impl_map.erase(this);
 #endif
     }
 
@@ -318,7 +305,7 @@ namespace sodium {
 #if defined(SODIUM_SINGLE_THREADED)
                 global_transaction = impl_;
 #else
-                pthread_setspecific(impl_->part->key, impl_);
+				transaction_impl_map[part] = impl_;
 #endif
             }
             part->depth++;
@@ -334,7 +321,7 @@ namespace sodium {
 #if defined(SODIUM_SINGLE_THREADED)
             return global_transaction;
 #else
-            return reinterpret_cast<impl::transaction_impl*>(pthread_getspecific(part->key));
+            return transaction_impl_map[part];
 #endif
         }
 
@@ -350,7 +337,7 @@ namespace sodium {
 #if defined(SODIUM_SINGLE_THREADED)
                     global_transaction = NULL;
 #else
-                    pthread_setspecific(impl__->part->key, NULL);
+					transaction_impl_map[impl__->part] = NULL;
 #endif
                     delete impl__;
                     part->process_post();
