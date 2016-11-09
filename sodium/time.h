@@ -72,9 +72,16 @@ namespace sodium {
         public:
             timer_system_base(
                 cell<T> time_,
-                std::shared_ptr<timer_system_impl<T>> impl_,
-                std::shared_ptr<priority_queue<event<T>>> event_queue_
-            ) : time(time_), impl(impl_), event_queue(event_queue_), lock(new mutex) {}
+                SODIUM_SHARED_PTR<timer_system_impl<T>> impl_,
+                SODIUM_SHARED_PTR<priority_queue<event<T>>> event_queue_
+#if !defined(SODIUM_SINGLE_THREADED)
+                , SODIUM_SHARED_PTR<mutex> lock_
+#endif
+            ) : time(time_), impl(impl_), event_queue(event_queue_)
+#if !defined(SODIUM_SINGLE_THREADED)
+            , lock(lock_)
+#endif
+            {}
 
         private:
             struct at_state {
@@ -82,14 +89,21 @@ namespace sodium {
                 boost::optional<event<T>> current;
                 boost::optional<std::function<void()>> cancel_current;
                 boost::optional<T> tAl;
-                void do_cancel(const std::shared_ptr<priority_queue<event<T>>>& event_queue,
-                               const std::shared_ptr<mutex>& lock)
+                void do_cancel(const SODIUM_SHARED_PTR<priority_queue<event<T>>>& event_queue
+#if !defined(SODIUM_SINGLE_THREADED)
+                               , const SODIUM_SHARED_PTR<mutex>& lock
+#endif
+                               )
                 {
                     if (this->cancel_current) {
                         this->cancel_current.get()();
+#if !defined(SODIUM_SINGLE_THREADED)
                         lock->lock();
+#endif
                         event_queue->remove(this->current.get());
+#if !defined(SODIUM_SINGLE_THREADED)
                         lock->unlock();
+#endif
                     }
                     this->cancel_current = boost::optional<std::function<void()>>();
                     this->current = boost::optional<event<T>>();
@@ -103,19 +117,33 @@ namespace sodium {
 
                 stream_sink<T> sAlarm_snk;
 
-                std::shared_ptr<at_state> state(new at_state);
+                SODIUM_SHARED_PTR<at_state> state(new at_state);
                 const auto& impl_(this->impl);
                 const auto& event_queue_(this->event_queue);
+#if !defined(SODIUM_SINGLE_THREADED)
                 const auto& lock_(this->lock);
+#endif
                 auto kill = tAlarm.value().listen(
-                        [state, impl_, event_queue_, lock_, tAlarm, sAlarm_snk] (const boost::optional<T>& o_tAl) {
-                    state->do_cancel(event_queue_, lock_);
+                        [state, impl_, event_queue_
+#if !defined(SODIUM_SINGLE_THREADED)
+                        , lock_
+#endif
+                        , tAlarm, sAlarm_snk] (const boost::optional<T>& o_tAl) {
+                    state->do_cancel(event_queue_
+#if !defined(SODIUM_SINGLE_THREADED)
+                        , lock_
+#endif
+                        );
                     if (o_tAl) {
                         const auto& tAl = o_tAl.get();
                         state->current = boost::make_optional(event<T>(tAl, sAlarm_snk));
+#if !defined(SODIUM_SINGLE_THREADED)
                         lock_->lock();
+#endif
                         event_queue_->push(state->current.get());
+#if !defined(SODIUM_SINGLE_THREADED)
                         lock_->unlock();
+#endif
                         state->cancel_current = impl_->set_timer(tAl, [] () {
                                     // Open and close a transaction to trigger queued
                                     // events to run.
@@ -124,18 +152,28 @@ namespace sodium {
                                 });
                     }
                 });
-                auto sa = sAlarm_snk.add_cleanup([kill, state, event_queue_, lock_] () {
+                auto sa = sAlarm_snk.add_cleanup([kill, state, event_queue_
+#if !defined(SODIUM_SINGLE_THREADED)
+                    , lock_
+#endif
+                    ] () {
                     kill();
-                    state->do_cancel(event_queue_, lock_);
+                    state->do_cancel(event_queue_
+#if !defined(SODIUM_SINGLE_THREADED)
+                        , lock_
+#endif
+                        );
                 });
                 trans0.close();
                 return sa;
             }
             cell<T> time;
         private:
-            std::shared_ptr<timer_system_impl<T>> impl;
-            std::shared_ptr<priority_queue<event<T>>> event_queue;
-            std::shared_ptr<mutex> lock;
+            SODIUM_SHARED_PTR<timer_system_impl<T>> impl;
+            SODIUM_SHARED_PTR<priority_queue<event<T>>> event_queue;
+#if !defined(SODIUM_SINGLE_THREADED)
+            SODIUM_SHARED_PTR<mutex> lock;
+#endif
         };
     }
 
@@ -143,16 +181,17 @@ namespace sodium {
     class timer_system : public impl::timer_system_base<T>
     {
     public:
-        timer_system(std::shared_ptr<timer_system_impl<T>> impl_)
+        timer_system(SODIUM_SHARED_PTR<timer_system_impl<T>> impl_)
             : impl::timer_system_base<T>(construct(std::move(impl_)))
         {
         }
     private:
-        static impl::timer_system_base<T> construct(std::shared_ptr<timer_system_impl<T>> impl) {
+        static impl::timer_system_base<T> construct(SODIUM_SHARED_PTR<timer_system_impl<T>> impl) {
             transaction trans0;
             cell_sink<T> time_snk(impl->now());
             SODIUM_SHARED_PTR<impl::priority_queue<impl::event<T>>> q(new impl::priority_queue<impl::event<T>>);
-            trans0.on_start([impl, time_snk, q] () {
+            SODIUM_SHARED_PTR<mutex> lock(new mutex);
+            trans0.on_start([impl, time_snk, q, lock] () {
                 T t = impl->now();
                 lock->lock();
                 while (true) {
@@ -178,7 +217,7 @@ namespace sodium {
                 }
                 time_snk.send(t);
             });
-            return impl::timer_system_base<T>(time_snk, impl, q);
+            return impl::timer_system_base<T>(time_snk, impl, q, lock);
         }
     };
 
