@@ -5,9 +5,9 @@
 #include <memory>
 
 namespace sodium {
-    template <class A>
+    template <typename A>
     class promise {
-    template <class B>
+    template <typename B>
     friend class promise;
     private:
         promise(
@@ -51,7 +51,7 @@ namespace sodium {
         }
     };
 
-    template <class A, class B, class C>
+    template <typename A, typename B, typename C>
     promise<C> lift(const std::function<C(const A&, const B&)>& f,
         const promise<A>& pa, const promise<B>& pb)
     {

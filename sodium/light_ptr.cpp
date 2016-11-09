@@ -6,12 +6,11 @@
  */
 #include <sodium/light_ptr.h>
 #include <sodium/lock_pool.h>
-#include <stdio.h>
 
 namespace sodium {
 #define SODIUM_DEFINE_LIGHTPTR(Name, GET_AND_LOCK, UNLOCK) \
     Name::Name() \
-        : value(NULL), count(NULL) \
+        : value(nullptr), count(nullptr) \
     { \
     } \
      \
@@ -29,10 +28,10 @@ namespace sodium {
         count->c++; \
         UNLOCK; \
     } \
-     \
+    \
     Name::~Name() { \
         GET_AND_LOCK; \
-        if (count != NULL && --count->c == 0) { \
+        if (count != nullptr && --count->c == 0) { \
             UNLOCK; \
             count->del(value); delete count; \
         } \

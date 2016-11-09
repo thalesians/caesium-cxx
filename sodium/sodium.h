@@ -29,23 +29,23 @@
 
 namespace sodium {
 
-    template <class A> class stream;
-    template <class A> class cell;
-    template <class A> class cell_sink;
-    template <class A> class cell_loop;
-    template <class A> class stream_loop;
-    template <class A, class B>
+    template <typename A> class stream;
+    template <typename A> class cell;
+    template <typename A> class cell_sink;
+    template <typename A> class cell_loop;
+    template <typename A> class stream_loop;
+    template <typename A, typename B>
     cell<B> apply(const cell<std::function<B(const A&)>>& bf, const cell<A>& ba);
-    template <class A>
+    template <typename A>
     stream<A> filter_optional(const stream<boost::optional<A>>& input);
-    template <class A>
+    template <typename A>
     stream<A> split(const stream<std::list<A>>& e);
-    template <class A>
+    template <typename A>
     stream<A> switch_s(const cell<stream<A>>& bea);
-    template <class T>
+    template <typename T>
     cell<typename T::time> clock(const T& t);
 
-    template <class A>
+    template <typename A>
     class lazy {
     private:
         std::function<A()> f;
@@ -87,16 +87,17 @@ namespace sodium {
 
         class cell_;
         struct cell_impl;
+        template <typename T> class timer_system_base;
 
         class stream_ {
         friend class cell_;
-        template <class A> friend class sodium::stream;
-        template <class A> friend class sodium::stream_loop;
-        template <class A> friend class sodium::cell;
+        template <typename A> friend class sodium::stream;
+        template <typename A> friend class sodium::stream_loop;
+        template <typename A> friend class sodium::cell;
         friend cell_ switch_c(transaction_impl* trans, const cell_& bba);
         friend SODIUM_SHARED_PTR<cell_impl> hold(transaction_impl* trans0, const light_ptr& initValue, const stream_& input);
         friend SODIUM_SHARED_PTR<cell_impl> hold_lazy(transaction_impl* trans0, const std::function<light_ptr()>& initValue, const stream_& input);
-        template <class A, class B>
+        template <typename A, typename B>
         friend cell<B> sodium::apply(const cell<std::function<B(const A&)>>& bf, const cell<A>& ba);
         friend cell_ apply(transaction_impl* trans0, const cell_& bf, const cell_& ba);
         friend stream_ map_(transaction_impl* trans, const std::function<light_ptr(const light_ptr&)>& f, const stream_& ev);
@@ -104,18 +105,19 @@ namespace sodium {
             const std::function<light_ptr(const light_ptr&)>& f,
             const cell_& beh);
         friend stream_ switch_s(transaction_impl* trans, const cell_& bea);
-        template <class A>
+        template <typename A>
         friend stream<A> sodium::split(const stream<std::list<A>>& e);
         friend stream_ filter_optional_(transaction_impl* trans, const stream_& input,
             const std::function<boost::optional<light_ptr>(const light_ptr&)>& f);
+        template <typename T> friend class timer_system_base;
 
         protected:
             boost::intrusive_ptr<listen_impl_func<H_STREAM> > p_listen_impl;
 
         public:
             stream_();
-            stream_(const boost::intrusive_ptr<listen_impl_func<H_STREAM> >& p_listen_impl_)
-                : p_listen_impl(p_listen_impl_) {}
+            stream_(boost::intrusive_ptr<listen_impl_func<H_STREAM>> p_listen_impl_)
+                : p_listen_impl(std::move(p_listen_impl_)) {}
 
 #if defined(SODIUM_CONSTANT_OPTIMIZATION)
             bool is_never() const { return !impl::alive(p_listen_impl); }
@@ -288,13 +290,13 @@ namespace sodium {
                             const stream_& input);
 
         struct cell_impl_constant : cell_impl {
-            cell_impl_constant(const light_ptr& k_) : k(k_) {}
+            cell_impl_constant(light_ptr k_) : k(std::move(k_)) {}
             light_ptr k;
             virtual const light_ptr& sample() const { return k; }
             virtual const light_ptr& newValue() const { return k; }
         };
 
-        template <class state_t>
+        template <typename state_t>
         struct cell_impl_concrete : cell_impl {
             cell_impl_concrete(
                 const stream_& updates_,
@@ -368,8 +370,8 @@ namespace sodium {
             public:
                 cell_();
                 cell_(cell_impl* impl);
-                cell_(const SODIUM_SHARED_PTR<cell_impl>& impl);
-                cell_(const light_ptr& a);
+                cell_(SODIUM_SHARED_PTR<cell_impl> impl);
+                cell_(light_ptr a);
                 SODIUM_SHARED_PTR<impl::cell_impl> impl;
 
 #if defined(SODIUM_CONSTANT_OPTIMIZATION)
@@ -387,35 +389,35 @@ namespace sodium {
             const cell_& beh);
     }  // end namespace impl
 
-    template <class A>
+    template <typename A>
     class stream;
 
     /*!
      * A like an stream, but it tracks the input stream's current value and causes it
      * always to be output once at the beginning for each listener.
      */
-    template <class A>
+    template <typename A>
     class cell : protected impl::cell_ {
-        template <class AA> friend class stream;
-        template <class AA> friend class cell;
-        template <class AA> friend class cell_loop;
-        template <class AA, class BB>
+        template <typename AA> friend class stream;
+        template <typename AA> friend class cell;
+        template <typename AA> friend class cell_loop;
+        template <typename AA, typename BB>
         friend cell<BB> apply(const cell<std::function<BB(const AA&)>>& bf, const cell<AA>& ba);
-        template <class AA>
+        template <typename AA>
         friend cell<AA> switch_c(const cell<cell<AA>>& bba);
-        template <class AA>
+        template <typename AA>
         friend stream<AA> switch_s(const cell<stream<AA>>& bea);
-        template <class TT>
+        template <typename TT>
         friend cell<typename TT::time> clock(const TT& t);
         private:
-            cell(const SODIUM_SHARED_PTR<impl::cell_impl>& impl_)
-                : impl::cell_(impl_)
+            cell(SODIUM_SHARED_PTR<impl::cell_impl> impl_)
+                : impl::cell_(std::move(impl_))
             {
             }
 
         protected:
             cell() {}
-            cell(const impl::cell_& beh) : impl::cell_(beh) {}
+            cell(impl::cell_ c) : impl::cell_(std::move(c)) {}
 
         public:
             /*!
@@ -477,7 +479,7 @@ namespace sodium {
             /*!
              * Lift a binary function into cells.
              */
-            template <class B, class Fn>
+            template <typename B, typename Fn>
             cell<typename std::result_of<Fn(A,B)>::type> lift(const cell<B>& bb, const Fn& f) const
             {
                 typedef typename std::result_of<Fn(A,B)>::type C;
@@ -495,7 +497,7 @@ namespace sodium {
             /*!
              * Lift a ternary function into cells.
              */
-            template <class B, class C, class Fn>
+            template <typename B, typename C, typename Fn>
             cell<typename std::result_of<Fn(A,B,C)>::type> lift(
                 const cell<B>& bb,
                 const cell<C>& bc,
@@ -518,7 +520,7 @@ namespace sodium {
             /*!
              * Lift a quaternary function into cells.
              */
-            template <class B, class C, class D, class Fn>
+            template <typename B, typename C, typename D, typename Fn>
             cell<typename std::result_of<Fn(A,B,C,D)>::type> lift(
                 const cell<B>& bb,
                 const cell<C>& bc,
@@ -544,7 +546,7 @@ namespace sodium {
             /*!
              * Lift a 5-argument function into cells.
              */
-            template <class B, class C, class D, class E, class Fn>
+            template <typename B, typename C, typename D, typename E, typename Fn>
             cell<typename std::result_of<Fn(A,B,C,D,E)>::type> lift(
                 const cell<B>& bb,
                 const cell<C>& bc,
@@ -573,7 +575,7 @@ namespace sodium {
             /*!
              * Lift a 6-argument function into cells.
              */
-            template <class B, class C, class D, class E, class F, class Fn>
+            template <typename B, typename C, typename D, typename E, typename F, typename Fn>
             cell<typename std::result_of<Fn(A,B,C,D,E,F)>::type> lift(
                 const cell<A>& ba,
                 const cell<B>& bb,
@@ -606,7 +608,7 @@ namespace sodium {
             /*!
              * Lift a 7-argument function into cells.
              */
-            template <class B, class C, class D, class E, class F, class G, class Fn>
+            template <typename B, typename C, typename D, typename E, typename F, typename G, typename Fn>
             cell<typename std::result_of<Fn(A,B,C,D,E,F,G)>::type> lift(
                 const cell<A>& ba,
                 const cell<B>& bb,
@@ -684,7 +686,7 @@ namespace sodium {
              * The supplied function should have the signature std::tuple<B, S>(A, S), where B
              * is the return cell's type, and S is the state type.
              */
-            template <class S, class Fn>
+            template <typename S, typename Fn>
             cell<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect_lazy(
                 const lazy<S>& initS,
                 const Fn& f
@@ -725,7 +727,7 @@ namespace sodium {
              * The supplied function should have the signature std::tuple<B, S>(A, S), where B
              * is the return cell's type, and S is the state type.
              */
-            template <class S, class Fn>
+            template <typename S, typename Fn>
             cell<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect(
                 const S& initS,
                 const Fn& f
@@ -736,18 +738,19 @@ namespace sodium {
 
     };  // end class cell
 
-    template <class A>
+    template <typename A>
     class stream : protected impl::stream_ {
-        template <class AA> friend class stream;
-        template <class AA> friend class stream_sink;
-        template <class AA> friend class cell;
-        template <class AA> friend class cell_sink;
-        template <class AA> friend class cell_loop;
-        template <class AA> friend class stream_sink;
-        template <class AA> friend stream<AA> filter_optional(const stream<boost::optional<AA>>& input);
-        template <class AA> friend stream<AA> switch_s(const cell<stream<AA>>& bea);
-        template <class AA> friend stream<AA> split(const stream<std::list<AA>>& e);
-        template <class AA> friend class sodium::stream_loop;
+        template <typename AA> friend class stream;
+        template <typename AA> friend class stream_sink;
+        template <typename AA> friend class cell;
+        template <typename AA> friend class cell_sink;
+        template <typename AA> friend class cell_loop;
+        template <typename AA> friend class stream_sink;
+        template <typename AA> friend stream<AA> filter_optional(const stream<boost::optional<AA>>& input);
+        template <typename AA> friend stream<AA> switch_s(const cell<stream<AA>>& bea);
+        template <typename AA> friend stream<AA> split(const stream<std::list<AA>>& e);
+        template <typename AA> friend class sodium::stream_loop;
+        template <class T> friend class impl::timer_system_base;
         public:
             /*!
              * The 'never' stream (that never fires).
@@ -807,7 +810,7 @@ namespace sodium {
             /*!
              * Map a function over this stream that always outputs a constant value.
              */
-            template <class B>
+            template <typename B>
             stream<B> map_to(const B& value) {
                 return map([value] (const A&) -> B { return value; });
             }
@@ -833,7 +836,7 @@ namespace sodium {
              * Merge a stream of unary functions with a signature like Arg(Arg), in the
              * simultaneous case, composing them, with the function on the left going first.
              */
-            template <class Arg>
+            template <typename Arg>
             stream<A> merge_functions(const stream<A>& s) const {
                 return merge(s, [] (const A& f, const A& g) -> A {
                     return [f, g] (Arg a) -> Arg {
@@ -936,7 +939,7 @@ namespace sodium {
              * current one, i.e. no changes from the current transaction are
              * taken.
              */
-            template <class B, class Fn>
+            template <typename B, typename Fn>
             stream<typename std::result_of<Fn(A,B)>::type> snapshot(const cell<B>& beh, const Fn& combine) const
             {
                 typedef typename std::result_of<Fn(A,B)>::type C;
@@ -950,7 +953,7 @@ namespace sodium {
                 return sa;
             }
 
-            template <class B, class C, class Fn>
+            template <typename B, typename C, typename Fn>
             stream<typename std::result_of<Fn(A,B,C)>::type> snapshot(
                 const cell<B>& bc, const cell<C>& cc, const Fn& f) const
             {
@@ -960,7 +963,7 @@ namespace sodium {
                 });
             }
 
-            template <class B, class C, class D, class Fn>
+            template <typename B, typename C, typename D, typename Fn>
             stream<typename std::result_of<Fn(A,B,C,D)>::type> snapshot(
                 const cell<B>& bc, const cell<C>& cc, const cell<D>& cd,
                 const Fn& f) const
@@ -971,7 +974,7 @@ namespace sodium {
                 });
             }
 
-            template <class B, class C, class D, class E, class Fn>
+            template <typename B, typename C, typename D, typename E, typename Fn>
             stream<typename std::result_of<Fn(A,B,C,D,E)>::type> snapshot(
                 const cell<B>& bc, const cell<C>& cc, const cell<D>& cd, const cell<E>& ce,
                 const Fn& f) const
@@ -982,7 +985,7 @@ namespace sodium {
                 });
             }
 
-            template <class B, class C, class D, class E, class F, class Fn>
+            template <typename B, typename C, typename D, typename E, typename F, typename Fn>
             stream<typename std::result_of<Fn(A,B,C,D,E,F)>::type> snapshot(
                 const cell<B>& bc, const cell<C>& cc, const cell<D>& cd, const cell<E>& ce, const cell<F>& cf,
                 const Fn& f) const
@@ -998,7 +1001,7 @@ namespace sodium {
              * current one, i.e. no changes from the current transaction are
              * taken.
              */
-            template <class B>
+            template <typename B>
             stream<B> snapshot(const cell<B>& beh) const
             {
                 return snapshot(beh,
@@ -1029,7 +1032,7 @@ namespace sodium {
              * The supplied function should have the signature std::tuple<B, S>(A, S), where B
              * is the return cell's type, and S is the state type.
              */
-            template <class S, class Fn>
+            template <typename S, typename Fn>
             stream<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect_lazy(
                 const lazy<S>& initS,
                 const Fn& f
@@ -1059,7 +1062,7 @@ namespace sodium {
              * The supplied function should have the signature std::tuple<B, S>(A, S), where B
              * is the return cell's type, and S is the state type.
              */
-            template <class S, class Fn>
+            template <typename S, typename Fn>
             stream<typename std::tuple_element<0,typename std::result_of<Fn(A,S)>::type>::type> collect(
                 const S& initS,
                 const Fn& f
@@ -1068,7 +1071,7 @@ namespace sodium {
                 return collect_lazy<S,Fn>(lazy<S>(initS), f);
             }
 
-            template <class B>
+            template <typename B>
             stream<B> accum_s_lazy(
                 const lazy<B>& initB,
                 const std::function<B(const A&, const B&)>& f
@@ -1090,7 +1093,7 @@ namespace sodium {
                 return sb;
             }
 
-            template <class B>
+            template <typename B>
             stream<B> accum_s(
                 const B& initB,
                 const std::function<B(const A&, const B&)>& f
@@ -1102,13 +1105,13 @@ namespace sodium {
             /*!
              * Renamed to accum_s.
              */
-            template <class B>
+            template <typename B>
             stream<B> accum_e(
                 const B& initB,
                 const std::function<B(const A&, const B&)>& f
             ) const __attribute__ ((deprecated));
 
-            template <class B>
+            template <typename B>
             cell<B> accum(
                 const B& initB,
                 const std::function<B(const A&, const B&)>& f
@@ -1214,8 +1217,8 @@ namespace sodium {
             }
     };  // end class stream
 
-    template <class A>
-    template <class B>
+    template <typename A>
+    template <typename B>
     stream<B> stream<A>::accum_e(
         const B& initB,
         const std::function<B(const A&, const B&)>& f
@@ -1234,7 +1237,7 @@ namespace sodium {
     }
 
     namespace impl {
-        template <class A, class L>
+        template <typename A, typename L>
         stream<A> merge(const L& sas, size_t start, size_t end, const std::function<A(const A&, const A&)>& f) {
             size_t len = end - start;
             if (len == 0) return stream<A>(); else
@@ -1249,7 +1252,7 @@ namespace sodium {
     /*!
      * Variant of merge that merges a collection of streams.
      */
-    template <class A, class L>
+    template <typename A, typename L>
     stream<A> merge(const L& sas) {
         return impl::merge<A, L>(sas, 0, sas.size(), [] (const A& l, const A& r) { return r; });
     }
@@ -1257,7 +1260,7 @@ namespace sodium {
     /*!
      * Variant of merge that merges a collection of streams.
      */
-    template <class A, class L>
+    template <typename A, typename L>
     stream<A> merge(const L& sas, const std::function<A(const A&, const A&)>& f) {
         return impl::merge<A, L>(sas, 0, sas.size(), f);
     }
@@ -1266,7 +1269,7 @@ namespace sodium {
      * An stream with a send() method to allow values to be pushed into it
      * from the imperative world.
      */
-    template <class A>
+    template <typename A>
     class stream_sink : public stream<A>
     {
         private:
@@ -1309,7 +1312,7 @@ namespace sodium {
     /*!
      * Filter an stream of optionals, keeping only the defined values.
      */
-    template <class A>
+    template <typename A>
     stream<A> filter_optional(const stream<boost::optional<A>>& input)
     {
         transaction trans;
@@ -1328,7 +1331,7 @@ namespace sodium {
      * A cell with a send() method to allow its value to be changed
      * from the imperative world.
      */
-    template <class A>
+    template <typename A>
     class cell_sink : public cell<A>
     {
         private:
@@ -1377,7 +1380,7 @@ namespace sodium {
      * Apply a function contained in a cell to a cell value. This is the primitive
      * for all lifting of functions into cells.
      */
-    template <class A, class B>
+    template <typename A, typename B>
     cell<B> apply(
         const cell<std::function<B(const A&)>>& bf,
         const cell<A>& ba)
@@ -1409,7 +1412,7 @@ namespace sodium {
      *
      * TO DO: Loops do not yet get deallocated properly.
      */
-    template <class A>
+    template <typename A>
     class stream_loop : public stream<A>
     {
         private:
@@ -1486,7 +1489,7 @@ namespace sodium {
      *
      * TO DO: Loops do not yet get deallocated properly.
      */
-    template <class A>
+    template <typename A>
     class cell_loop : public cell<A>
     {
         private:
@@ -1524,7 +1527,7 @@ namespace sodium {
      * due to cell's delay semantics, stream occurrences for the new
      * stream won't come through until the following transaction.
      */
-    template <class A>
+    template <typename A>
     stream<A> switch_s(const cell<stream<A>>& bea)
     {
         transaction trans;
@@ -1533,13 +1536,13 @@ namespace sodium {
         return sa;
     }
 
-    template <class A>
+    template <typename A>
     stream<A> switch_e(const cell<stream<A>>& bea) __attribute__ ((deprecated));
 
     /*!
      * Deprecated old name.
      */
-    template <class A>
+    template <typename A>
     stream<A> switch_e(const cell<stream<A>>& bea)
     {
         return switch_s<A>(bea);
@@ -1552,7 +1555,7 @@ namespace sodium {
     /*!
      * Cell variant of switch.
      */
-    template <class A>
+    template <typename A>
     cell<A> switch_c(const cell<cell<A>>& bba)
     {
         transaction trans;
@@ -1561,26 +1564,26 @@ namespace sodium {
         return ca;
     }
 
-    template <class A>
+    template <typename A>
     cell<A> switch_b(const cell<cell<A>>& bba) __attribute__ ((deprecated));
 
     /*!
      * Cell variant of switch - deprecated old name.
      */
-    template <class A>
+    template <typename A>
     cell<A> switch_b(const cell<cell<A>>& bba)
     {
         return switch_c<A>(bba);
     }
 
-    template <class A, class B, class C>
+    template <typename A, typename B, typename C>
     cell<C> lift(const std::function<C(const A&, const B&)>& f, const cell<A>& ba, const cell<B>& bb)
      __attribute__ ((deprecated));
 
     /*!
      * Lift a binary function into cells.
      */
-    template <class A, class B, class C>
+    template <typename A, typename B, typename C>
     cell<C> lift(const std::function<C(const A&, const B&)>& f, const cell<A>& ba, const cell<B>& bb)
     {
         std::function<std::function<C(const B&)>(const A&)> fa(
@@ -1594,7 +1597,7 @@ namespace sodium {
         return cc;
     }
 
-    template <class A, class B, class C, class D>
+    template <typename A, typename B, typename C, typename D>
     cell<D> lift(const std::function<D(const A&, const B&, const C&)>& f,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1604,7 +1607,7 @@ namespace sodium {
     /*!
      * Lift a ternary function into cells.
      */
-    template <class A, class B, class C, class D>
+    template <typename A, typename B, typename C, typename D>
     cell<D> lift(const std::function<D(const A&, const B&, const C&)>& f,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1623,7 +1626,7 @@ namespace sodium {
         return apply(apply(ba.map(fa), bb), bc);
     }
 
-    template <class A, class B, class C, class D, class E>
+    template <typename A, typename B, typename C, typename D, typename E>
     cell<E> lift(const std::function<E(const A&, const B&, const C&, const D&)>& f,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1634,7 +1637,7 @@ namespace sodium {
     /*!
      * Lift a quaternary function into cells.
      */
-    template <class A, class B, class C, class D, class E>
+    template <typename A, typename B, typename C, typename D, typename E>
     cell<E> lift(const std::function<E(const A&, const B&, const C&, const D&)>& f,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1656,7 +1659,7 @@ namespace sodium {
         return apply(apply(apply(ba.map(fa), bb), bc), bd);
     }
 
-    template <class A, class B, class C, class D, class E, class F>
+    template <typename A, typename B, typename C, typename D, typename E, typename F>
     cell<F> lift(const std::function<F(const A&, const B&, const C&, const D&, const E&)>& f,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1668,7 +1671,7 @@ namespace sodium {
     /*!
      * Lift a 5-argument function into cells.
      */
-    template <class A, class B, class C, class D, class E, class F>
+    template <typename A, typename B, typename C, typename D, typename E, typename F>
     cell<F> lift(const std::function<F(const A&, const B&, const C&, const D&, const E&)>& f,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1693,7 +1696,7 @@ namespace sodium {
         return apply(apply(apply(apply(ba.map(fa), bb), bc), bd), be);
     }
 
-    template <class A, class B, class C, class D, class E, class F, class G>
+    template <typename A, typename B, typename C, typename D, typename E, typename F, typename G>
     cell<G> lift(const std::function<G(const A&, const B&, const C&, const D&, const E&, const F&)>& fn,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1706,7 +1709,7 @@ namespace sodium {
     /*!
      * Lift a 6-argument function into cells.
      */
-    template <class A, class B, class C, class D, class E, class F, class G>
+    template <typename A, typename B, typename C, typename D, typename E, typename F, typename G>
     cell<G> lift(const std::function<G(const A&, const B&, const C&, const D&, const E&, const F&)>& fn,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1734,7 +1737,7 @@ namespace sodium {
         return apply(apply(apply(apply(apply(ba.map(fa), bb), bc), bd), be), bf);
     }
 
-    template <class A, class B, class C, class D, class E, class F, class G, class H>
+    template <typename A, typename B, typename C, typename D, typename E, typename F, typename G, typename H>
     cell<H> lift(const std::function<H(const A&, const B&, const C&, const D&, const E&, const F&, const G&)>& fn,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1748,7 +1751,7 @@ namespace sodium {
     /*!
      * Lift a 7-argument function into cells.
      */
-    template <class A, class B, class C, class D, class E, class F, class G, class H>
+    template <typename A, typename B, typename C, typename D, typename E, typename F, typename G, typename H>
     cell<H> lift(const std::function<H(const A&, const B&, const C&, const D&, const E&, const F&, const G&)>& fn,
         const cell<A>& ba,
         const cell<B>& bb,
@@ -1786,7 +1789,7 @@ namespace sodium {
      * a block of input data into frames. We obviously want each frame to have
      * its own transaction so that state is updated separately for each frame.
      */
-    template <class A>
+    template <typename A>
     stream<A> split(const stream<std::list<A>>& e)
     {
         SODIUM_TUPLE<impl::stream_,SODIUM_SHARED_PTR<impl::node> > p = impl::unsafe_new_stream();
@@ -1812,32 +1815,32 @@ namespace sodium {
     // New type names:
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    template <class A>
+    template <typename A>
     struct event : stream<A> {
         event() {}
         event(const stream<A>& other) : stream<A>(other) {}
     } __attribute__ ((deprecated));
-    template <class A>
+    template <typename A>
     struct event_sink : stream_sink<A> {
         event_sink() {}
         event_sink(const std::function<A(const A&, const A&)>& f) : stream_sink<A>(f) {}
         event_sink(const stream_sink<A>& other) : stream_sink<A>(other) {}
     } __attribute__ ((deprecated));
-    template <class A>
+    template <typename A>
     struct event_loop : stream_loop<A> {
         event_loop() {}
         event_loop(const stream_loop<A>& other) : event_loop<A>(other) {}
     } __attribute__ ((deprecated));
-    template <class A>
+    template <typename A>
     struct behavior : cell<A> {
         behavior(const A& initValue) : cell<A>(initValue) {}
         behavior(const cell<A>& other) : cell<A>(other) {}
     } __attribute__ ((deprecated));
-    template <class A>
+    template <typename A>
     struct behavior_sink : cell_sink<A> {
         behavior_sink(const A& initValue) : cell_sink<A>(initValue) {}
     } __attribute__ ((deprecated));
-    template <class A>
+    template <typename A>
     struct behavior_loop : cell_loop<A> {
         behavior_loop() {}
     } __attribute__ ((deprecated));

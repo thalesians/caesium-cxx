@@ -10,7 +10,7 @@
 #include <utility>
 
 namespace sodium {
-    template <class A>
+    template <typename A>
     void deleter(void* a0)
     {
         delete (A*)a0;
@@ -37,10 +37,15 @@ namespace sodium {
                                 /* satisfy the compiler for unusable private constructors */ \
             name(); \
             name(const name& other); \
-            template <class A> static inline name create(const A& a) { \
+            name(name&& other) : value(other.value), count(other.count) \
+            { \
+                other.value = nullptr; \
+                other.count = nullptr; \
+            } \
+            template <typename A> static inline name create(const A& a) { \
                 return name(new A(a), deleter<A>); \
             } \
-            template <class A> static inline name create(A&& a) { \
+            template <typename A> static inline name create(A&& a) { \
                 return name(new A(std::move(a)), deleter<A>); \
             } \
             name(void* value, impl::deleter del); \
@@ -49,8 +54,8 @@ namespace sodium {
             void* value; \
             impl::count* count; \
          \
-            template <class A> inline A* cast_ptr(A*) {return (A*)value;} \
-            template <class A> inline const A* cast_ptr(A*) const {return (A*)value;} \
+            template <typename A> inline A* cast_ptr(A*) {return (A*)value;} \
+            template <typename A> inline const A* cast_ptr(A*) const {return (A*)value;} \
         };
 
     SODIUM_DECLARE_LIGHTPTR(light_ptr)        // Thread-safe variant

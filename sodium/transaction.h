@@ -58,8 +58,12 @@ namespace sodium {
 #endif
         bool processing_post;
         std::list<std::function<void()>> postQ;
-        void post(const std::function<void()>& action);
+        void post(std::function<void()> action);
         void process_post();
+        std::list<std::function<void()>> on_start_hooks;
+        bool processing_on_start_hooks;
+        void on_start(std::function<void()> action);
+        bool shutting_down;
     };
 
     /*!
@@ -78,7 +82,7 @@ namespace sodium {
         class holder;
 
         class node;
-        template <class Allocator>
+        template <typename Allocator>
         struct listen_impl_func {
             typedef std::function<std::function<void()>*(
                 transaction_impl*,
@@ -187,7 +191,7 @@ namespace sodium {
 namespace sodium {
     namespace impl {
 
-        template <class A>
+        template <typename A>
         struct ordered_value {
             ordered_value() : tid(-1) {}
             long long tid;
@@ -205,9 +209,9 @@ namespace sodium {
         rank_t rankOf(const SODIUM_SHARED_PTR<node>& target);
 
         struct prioritized_entry {
-            prioritized_entry(const SODIUM_SHARED_PTR<node>& target_,
-                              const std::function<void(transaction_impl*)>& action_)
-                : target(target_), action(action_)
+            prioritized_entry(SODIUM_SHARED_PTR<node> target_,
+                              std::function<void(transaction_impl*)> action_)
+                : target(std::move(target_)), action(std::move(action_))
             {
             }
             SODIUM_SHARED_PTR<node> target;
@@ -225,41 +229,14 @@ namespace sodium {
             bool to_regen;
             int inCallback;
 
-            void prioritized(const SODIUM_SHARED_PTR<impl::node>& target,
-                             const std::function<void(impl::transaction_impl*)>& action);
+            void prioritized(SODIUM_SHARED_PTR<impl::node> target,
+                             std::function<void(impl::transaction_impl*)> action);
             void last(const std::function<void()>& action);
 
             void check_regen();
             void process_transactional();
         };
-    };
 
-    class policy {
-    public:
-        policy() {}
-        virtual ~policy() {}
-
-        static policy* get_global();
-        static void set_global(policy* policy);
-
-        /*!
-         * Get the current thread's active transaction for this partition, or NULL
-         * if none is active.
-         */
-        virtual impl::transaction_impl* current_transaction(partition* part) = 0;
-
-        virtual void initiate(impl::transaction_impl* impl) = 0;
-
-        /*!
-         * Dispatch the processing for this transaction according to the policy.
-         * Note that post() will delete impl, so don't reference it after that.
-         */
-        virtual void dispatch(impl::transaction_impl* impl,
-            const std::function<void()>& transactional,
-            const std::function<void()>& post) = 0;
-    };
-
-    namespace impl {
         class transaction_ {
         private:
             transaction_impl* impl_;
@@ -271,6 +248,7 @@ namespace sodium {
             impl::transaction_impl* impl() const { return impl_; }
         protected:
             void close();
+            static transaction_impl* current_transaction(partition* part);
         };
     };
 
@@ -288,18 +266,21 @@ namespace sodium {
              * But, in some cases you might want to close it earlier, and close() will do this for you.
              */
             inline void close() { impl::transaction_::close(); }
-    };
 
-    class simple_policy : public policy
-    {
-    public:
-        simple_policy();
-        virtual ~simple_policy();
-        virtual impl::transaction_impl* current_transaction(partition* part);
-        virtual void initiate(impl::transaction_impl* impl);
-        virtual void dispatch(impl::transaction_impl* impl,
-            const std::function<void()>& transactional,
-            const std::function<void()>& post);
+            void prioritized(SODIUM_SHARED_PTR<impl::node> target,
+                             std::function<void(impl::transaction_impl*)> action)
+            {
+                impl()->prioritized(std::move(target), std::move(action));
+            }
+
+            void post(std::function<void()> f) {
+                impl()->part->post(std::move(f));
+            }
+
+            static void on_start(std::function<void()> f) {
+                transaction trans;
+                trans.impl()->part->on_start(std::move(f));
+            }
     };
 }  // end namespace sodium
 

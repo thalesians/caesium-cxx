@@ -348,13 +348,13 @@ namespace sodium {
         {
         }
 
-        cell_::cell_(const SODIUM_SHARED_PTR<cell_impl>& impl_)
-            : impl(impl_)
+        cell_::cell_(SODIUM_SHARED_PTR<cell_impl> impl_)
+            : impl(std::move(impl_))
         {
         }
 
-        cell_::cell_(const light_ptr& a)
-            : impl(new cell_impl_constant(a))
+        cell_::cell_(light_ptr a)
+            : impl(new cell_impl_constant(std::move(a)))
         {
         }
 

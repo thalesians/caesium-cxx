@@ -82,26 +82,41 @@ namespace sodium {
 
     partition::partition()
         : depth(0),
-          processing_post(false)
+          processing_post(false),
+          processing_on_start_hooks(false),
+          shutting_down(false)
     {
 #if !defined(SODIUM_SINGLE_THREADED)
         pthread_key_create(&key, NULL);
 #endif
     }
-
+                            
     partition::~partition()
     {
+        shutting_down = true;
+        on_start_hooks.clear();
 #if !defined(SODIUM_SINGLE_THREADED)
         pthread_key_delete(key);
 #endif
     }
 
-    void partition::post(const std::function<void()>& action)
+    void partition::post(std::function<void()> action)
     {
 #if !defined(SODIUM_SINGLE_THREADED)
         mx.lock();
 #endif
-        postQ.push_back(action);
+        postQ.push_back(std::move(action));
+#if !defined(SODIUM_SINGLE_THREADED)
+        mx.unlock();
+#endif
+    }
+
+    void partition::on_start(std::function<void()> action)
+    {
+#if !defined(SODIUM_SINGLE_THREADED)
+        mx.lock();
+#endif
+        on_start_hooks.push_back(std::move(action));
 #if !defined(SODIUM_SINGLE_THREADED)
         mx.unlock();
 #endif
@@ -264,12 +279,12 @@ namespace sodium {
             }
         }
 
-        void transaction_impl::prioritized(const SODIUM_SHARED_PTR<node>& target,
-                                           const std::function<void(transaction_impl*)>& f)
+        void transaction_impl::prioritized(SODIUM_SHARED_PTR<node> target,
+                                           std::function<void(transaction_impl*)> f)
         {
             entryID id = next_entry_id;
             next_entry_id = next_entry_id.succ();
-            entries.insert(pair<entryID, prioritized_entry>(id, prioritized_entry(target, f)));
+            entries.insert(pair<entryID, prioritized_entry>(id, prioritized_entry(target, std::move(f))));
             prioritizedQ.insert(pair<rank_t, entryID>(rankOf(target), id));
         }
 
@@ -279,11 +294,32 @@ namespace sodium {
         }
 
         transaction_::transaction_(partition* part)
-            : impl_(policy::get_global()->current_transaction(part))
+            : impl_(current_transaction(part))
         {
             if (impl_ == NULL) {
+#if !defined(SODIUM_SINGLE_THREADED)
+                part->mx.lock();
+#endif
+                if (!part->processing_on_start_hooks) {
+                    part->processing_on_start_hooks = true;
+                    try {
+                        if (!part->shutting_down) {
+                            for (auto it = part->on_start_hooks.begin(); it != part->on_start_hooks.end(); ++it)
+                                (*it)();
+                        }
+                        part->processing_on_start_hooks = false;
+                    }
+                    catch (...) {
+                        part->processing_on_start_hooks = false;
+                        throw;
+                    }
+                }
                 impl_ = new transaction_impl(part);
-                policy::get_global()->initiate(impl_);
+#if defined(SODIUM_SINGLE_THREADED)
+                global_transaction = impl_;
+#else
+                pthread_setspecific(impl_->part->key, impl_);
+#endif
             }
             part->depth++;
         }
@@ -293,6 +329,15 @@ namespace sodium {
             close();
         }
 
+        /*static*/ transaction_impl* transaction_::current_transaction(partition* part)
+        {
+#if defined(SODIUM_SINGLE_THREADED)
+            return global_transaction;
+#else
+            return reinterpret_cast<impl::transaction_impl*>(pthread_getspecific(part->key));
+#endif
+        }
+
         void transaction_::close()
         {
             impl::transaction_impl* impl__(this->impl_);
@@ -300,18 +345,19 @@ namespace sodium {
                 this->impl_ = NULL;
                 partition* part = impl__->part;
                 if (part->depth == 1) {
-                    policy::get_global()->dispatch(
-                        impl__,
-                        [impl__] () {
-                            impl__->process_transactional();
-                            impl__->part->depth--;
-                        },
-                        [impl__] () {
-                            partition* part_ = impl__->part;
-                            delete impl__;
-                            part_->process_post();
-                        }
-                    );
+                    impl__->process_transactional();
+                    impl__->part->depth--;
+#if defined(SODIUM_SINGLE_THREADED)
+                    global_transaction = NULL;
+#else
+                    pthread_setspecific(impl__->part->key, NULL);
+#endif
+                    partition* part_ = impl__->part;
+                    delete impl__;
+                    part_->process_post();
+#if !defined(SODIUM_SINGLE_THREADED)
+                    part_->mx.unlock();
+#endif
                 }
                 else
                     part->depth--;
@@ -319,63 +365,4 @@ namespace sodium {
         }
     };  // end namespace impl
 
-    static policy* global_policy = new simple_policy;
-
-    /*static*/ policy* policy::get_global()
-    {
-        return global_policy;
-    }
-
-    /*static*/ void policy::set_global(policy* policy)
-    {
-        delete global_policy;
-        global_policy = policy;
-    }
-
-    simple_policy::simple_policy()
-    {
-    }
-    
-    simple_policy::~simple_policy()
-    {
-    }
-
-#if defined(SODIUM_SINGLE_THREADED)
-	static impl::transaction_impl* global_transaction;
-#endif
-
-    impl::transaction_impl* simple_policy::current_transaction(partition* part)
-    {
-#if defined(SODIUM_SINGLE_THREADED)
-    	return global_transaction;
-#else
-        return reinterpret_cast<impl::transaction_impl*>(pthread_getspecific(part->key));
-#endif
-    }
-
-    void simple_policy::initiate(impl::transaction_impl* impl)
-    {
-#if defined(SODIUM_SINGLE_THREADED)
-        global_transaction = impl;
-#else
-        impl->part->mx.lock();
-        pthread_setspecific(impl->part->key, impl);
-#endif
-    }
-
-    void simple_policy::dispatch(impl::transaction_impl* impl,
-        const std::function<void()>& transactional,
-        const std::function<void()>& post)
-    {
-        transactional();
-#if defined(SODIUM_SINGLE_THREADED)
-        global_transaction = NULL;
-#else
-        pthread_setspecific(impl->part->key, NULL);
-        impl->part->mx.unlock();
-#endif
-        post();  // note: deletes 'impl'
-    }
-
 };  // end namespace sodium
-
