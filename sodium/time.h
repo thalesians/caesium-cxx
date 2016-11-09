@@ -180,18 +180,17 @@ namespace sodium {
     };
 
     template <typename T>
-    stream<T> periodic_timer(const timer_system<T>& ts, const cell<T>& period) {
+    stream<T> periodic_timer(const timer_system<T>& sys, const cell<boost::optional<T>>& period) {
         transaction trans;
         using namespace boost;
         cell_loop<optional<T>> tAlarm;
-        stream<T> sAlarm = ts.at(tAlarm);
+        stream<T> sAlarm = sys.at(tAlarm);
+        cell<T> t_zero = sAlarm.hold(sys.time.sample());
         tAlarm.loop(
-            sAlarm.snapshot(
-                period,
-                [] (const T& t, const T& p) {
-                    return optional<T>(t + p);
-                })
-            .hold_lazy(ts.time.sample_lazy().map([] (const T& t) { return optional<T>(t); })));
+            t_zero.lift(period, [] (T t0, const boost::optional<T>& o_per) {
+                return o_per ? boost::optional<T>(t0 + o_per.get())
+                             : boost::optional<T>();
+            }));
         return sAlarm;
     }
 }  // end namespace sodium

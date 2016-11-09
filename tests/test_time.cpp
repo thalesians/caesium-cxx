@@ -68,7 +68,8 @@ int main(int argc, char* argv[])
 {
     std::shared_ptr<test_impl> impl(new test_impl);
     sodium::timer_system<int> ts(impl);
-    sodium::stream<int> timer = sodium::periodic_timer(ts, sodium::cell<int>(1000));
+    sodium::cell_sink<boost::optional<int>> period(boost::optional<int>(500));
+    sodium::stream<int> timer = sodium::periodic_timer(ts, period);
     std::vector<std::string> out;
     auto kill1 = timer.listen([&out] (int t) {
         char buf[128];
@@ -83,6 +84,10 @@ int main(int argc, char* argv[])
         out.push_back(buf);
     });
     for (int t = 0; t <= 10000; t += 666) {
+        if (t >= 4000)
+            period.send(boost::optional<int>());
+        if (t >= 5000)
+            period.send(boost::optional<int>(2000));
         impl->set_time(t);
         sAskCurrentTime.send(sodium::unit());
     }
@@ -92,29 +97,30 @@ int main(int argc, char* argv[])
         std::cout << *it << std::endl;
     assert(out == std::vector<std::string>({
         "ask 0",
+        "tick 500",
         "ask 666",
         "tick 1000",
         "ask 1332",
+        "tick 1500",
         "ask 1998",
         "tick 2000",
+        "tick 2500",
         "ask 2664",
         "tick 3000",
         "ask 3330",
+        "tick 3500",
         "ask 3996",
-        "tick 4000",
         "ask 4662",
-        "tick 5000",
         "ask 5328",
+        "tick 5500",
         "ask 5994",
-        "tick 6000",
         "ask 6660",
-        "tick 7000",
         "ask 7326",
+        "tick 7500",
         "ask 7992",
-        "tick 8000",
         "ask 8658",
-        "tick 9000",
         "ask 9324",
+        "tick 9500",
         "ask 9990"
     }));
     std::cout << "PASS" << std::endl;
