@@ -154,6 +154,7 @@ namespace sodium {
             SODIUM_SHARED_PTR<impl::priority_queue<impl::event<T>>> q(new impl::priority_queue<impl::event<T>>);
             trans0.on_start([impl, time_snk, q] () {
                 T t = impl->now();
+                lock->lock();
                 while (true) {
                     boost::optional<impl::event<T>> o_event;
                     if (!q->empty()) {
@@ -164,6 +165,7 @@ namespace sodium {
                             // TO DO: Detect infinite loops!
                         }
                     }
+                    lock->unlock();
                     if (o_event) {
                         const auto& e = o_event.get();
                         // Two separate transactions
@@ -172,6 +174,7 @@ namespace sodium {
                     }
                     else
                         break;
+                    lock->lock();
                 }
                 time_snk.send(t);
             });
