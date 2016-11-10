@@ -1255,8 +1255,8 @@ namespace sodium {
      * Variant of merge that merges a collection of streams.
      */
     template <typename A, typename L>
-    stream<A> merge(const L& sas) {
-        return impl::merge<A, L>(sas, 0, sas.size(), [] (const A& l, const A& r) { return r; });
+    stream<A> or_else(const L& sas) {
+        return impl::merge<A, L>(sas, 0, sas.size(), [] (const A& l, const A& r) { return l; });
     }
 
     /*!
