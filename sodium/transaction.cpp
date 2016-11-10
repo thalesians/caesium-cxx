@@ -65,26 +65,18 @@ namespace sodium {
 
     }
 
-	thread_local std::map<partition*, impl::transaction_impl*> transaction_impl_map;
-
     partition::partition()
         : depth(0),
           processing_post(false),
           processing_on_start_hooks(false),
           shutting_down(false)
     {
-#if !defined(SODIUM_SINGLE_THREADED)
-		transaction_impl_map[this] = NULL;
-#endif
     }
                             
     partition::~partition()
     {
         shutting_down = true;
         on_start_hooks.clear();
-#if !defined(SODIUM_SINGLE_THREADED)
-		transaction_impl_map.erase(this);
-#endif
     }
 
     void partition::post(std::function<void()> action)
@@ -280,6 +272,12 @@ namespace sodium {
             lastQ.push_back(action);
         }
 
+#if !defined(SODIUM_SINGLE_THREADED)
+        static transaction_impl* global_transaction;
+#else
+        thread_local transaction_impl* global_transaction;
+#endif
+
         transaction_::transaction_(partition* part)
             : impl_(current_transaction(part))
         {
@@ -302,11 +300,7 @@ namespace sodium {
                     }
                 }
                 impl_ = new transaction_impl(part);
-#if defined(SODIUM_SINGLE_THREADED)
                 global_transaction = impl_;
-#else
-				transaction_impl_map[part] = impl_;
-#endif
             }
             part->depth++;
         }
@@ -318,11 +312,7 @@ namespace sodium {
 
         /*static*/ transaction_impl* transaction_::current_transaction(partition* part)
         {
-#if defined(SODIUM_SINGLE_THREADED)
             return global_transaction;
-#else
-            return transaction_impl_map[part];
-#endif
         }
 
         void transaction_::close()
@@ -334,11 +324,7 @@ namespace sodium {
                 if (part->depth == 1) {
                     impl__->process_transactional();
                     part->depth--;
-#if defined(SODIUM_SINGLE_THREADED)
                     global_transaction = NULL;
-#else
-					transaction_impl_map[impl__->part] = NULL;
-#endif
                     delete impl__;
                     part->process_post();
 #if !defined(SODIUM_SINGLE_THREADED)

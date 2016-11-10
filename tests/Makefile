@@ -1,7 +1,8 @@
 all: test_sodium test_time memory/release-sink-machinery memory/switch-memory memory/promise-memory
 
 SRC=..
-CPPFLAGS += -I$(SRC) -g -Wshadow -Werror --std=c++11
+CPPFLAGS=-I$(SRC) -g -Wshadow -Werror --std=c++11
+#CPPFLAGS+=-DSODIUM_SINGLE_THREADED
 
 OBJECT_FILES= \
     $(SRC)/sodium/lock_pool.o \

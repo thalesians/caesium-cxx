@@ -75,7 +75,7 @@ namespace sodium {
                 SODIUM_SHARED_PTR<timer_system_impl<T>> impl_,
                 SODIUM_SHARED_PTR<priority_queue<event<T>>> event_queue_
 #if !defined(SODIUM_SINGLE_THREADED)
-                , SODIUM_SHARED_PTR<mutex> lock_
+                , SODIUM_SHARED_PTR<std::mutex> lock_
 #endif
             ) : time(time_), impl(impl_), event_queue(event_queue_)
 #if !defined(SODIUM_SINGLE_THREADED)
@@ -91,7 +91,7 @@ namespace sodium {
                 boost::optional<T> tAl;
                 void do_cancel(const SODIUM_SHARED_PTR<priority_queue<event<T>>>& event_queue
 #if !defined(SODIUM_SINGLE_THREADED)
-                               , const SODIUM_SHARED_PTR<mutex>& lock
+                               , const SODIUM_SHARED_PTR<std::mutex>& lock
 #endif
                                )
                 {
@@ -172,7 +172,7 @@ namespace sodium {
             SODIUM_SHARED_PTR<timer_system_impl<T>> impl;
             SODIUM_SHARED_PTR<priority_queue<event<T>>> event_queue;
 #if !defined(SODIUM_SINGLE_THREADED)
-            SODIUM_SHARED_PTR<mutex> lock;
+            SODIUM_SHARED_PTR<std::mutex> lock;
 #endif
         };
     }
@@ -190,7 +190,7 @@ namespace sodium {
             transaction trans0;
             cell_sink<T> time_snk(impl->now());
             SODIUM_SHARED_PTR<impl::priority_queue<impl::event<T>>> q(new impl::priority_queue<impl::event<T>>);
-            SODIUM_SHARED_PTR<mutex> lock(new mutex);
+            SODIUM_SHARED_PTR<std::mutex> lock(new std::mutex);
             trans0.on_start([impl, time_snk, q, lock] () {
                 T t = impl->now();
                 lock->lock();
@@ -217,7 +217,11 @@ namespace sodium {
                 }
                 time_snk.send(t);
             });
-            return impl::timer_system_base<T>(time_snk, impl, q, lock);
+            return impl::timer_system_base<T>(time_snk, impl, q
+#if !defined(SODIUM_SINGLE_THREADED)
+                , lock
+#endif
+                );
         }
     };
 
