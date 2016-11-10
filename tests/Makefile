@@ -3,7 +3,7 @@ all: test_sodium test_time memory/release-sink-machinery memory/switch-memory me
 SRC=..
 CPPFLAGS=-I$(SRC) -g -Wshadow -Werror --std=c++11
 #CPPFLAGS+=-DSODIUM_SINGLE_THREADED
-CPPFLAGS+=-DSODIUM_USE_PTHREAD_SPECIFIC
+#CPPFLAGS+=-DSODIUM_USE_PTHREAD_SPECIFIC
 
 # Strangely on g++-4.9.2 for ARM, using thread_local storage class doesn't
 # work and SODIUM_USE_PTHREAD_SPECIFIC is needed.
