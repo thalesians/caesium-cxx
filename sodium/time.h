@@ -189,8 +189,7 @@ namespace sodium {
             cell_sink<T> time_snk(impl->now());
             SODIUM_SHARED_PTR<impl::thread_safe_priority_queue<impl::event<T>>> event_queue(
                 new impl::thread_safe_priority_queue<impl::event<T>>);
-            SODIUM_SHARED_PTR<std::mutex> lock(new std::mutex);
-            trans0.on_start([impl, time_snk, event_queue, lock] () {
+            trans0.on_start([impl, time_snk, event_queue] () {
                 T t = impl->now();
                 while (true) {
                     boost::optional<impl::event<T>> o_event = event_queue->pop_if(
@@ -203,7 +202,6 @@ namespace sodium {
                     }
                     else
                         break;
-                    lock->lock();
                 }
                 time_snk.send(t);
             });
