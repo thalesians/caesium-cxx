@@ -25,7 +25,7 @@ struct test_impl : sodium::timer_system_impl<int>
             return seq == other.seq;
         }
     };
-    sodium::impl::priority_queue<entry> entries;
+    sodium::impl::thread_safe_priority_queue<entry> entries;
     int now_;
 
     /*!
@@ -50,13 +50,9 @@ struct test_impl : sodium::timer_system_impl<int>
 
     void set_time(int t) {
         while (true) {
-            if (entries.empty())
-                break;
-            auto e = entries.top();
-            if (e.t < t) {
-                entries.pop();
-                e.callback();
-            }
+            boost::optional<entry> oe = entries.pop_if([t] (const entry& e) { return e.t <= t; });
+            if (oe)
+                oe.get().callback();
             else
                 break;
         }
@@ -69,21 +65,27 @@ int main(int argc, char* argv[])
     std::shared_ptr<test_impl> impl(new test_impl);
     sodium::timer_system<int> ts(impl);
     sodium::cell_sink<boost::optional<int>> period(boost::optional<int>(500));
-    sodium::stream<int> timer = sodium::periodic_timer(ts, period);
+    sodium::stream<int> timer1 = sodium::periodic_timer(ts, period);
+    sodium::stream<int> timer2 = sodium::periodic_timer<int>(ts, boost::optional<int>(1429));
     std::vector<std::string> out;
-    auto kill1 = timer.listen([&out] (int t) {
+    auto kill1 = timer1.listen([&out] (int t) {
         char buf[128];
-        sprintf(buf, "tick %d", t);
+        sprintf(buf, "%5d one", t);
+        out.push_back(buf);
+    });
+    auto kill2 = timer2.listen([&out] (int t) {
+        char buf[128];
+        sprintf(buf, "%5d two", t);
         out.push_back(buf);
     });
     sodium::stream_sink<sodium::unit> sAskCurrentTime;
     sodium::stream<int> sCurrentTime = sAskCurrentTime.snapshot(ts.time);
-    auto kill2 = sCurrentTime.listen([&out] (int t) {
+    auto kill3 = sCurrentTime.listen([&out] (int t) {
         char buf[128];
-        sprintf(buf, "ask %d", t);
+        sprintf(buf, "%5d ---", t);
         out.push_back(buf);
     });
-    for (int t = 0; t <= 10000; t += 666) {
+    for (int t = 0; t <= 10656; t += 666) {
         if (t >= 4000)
             period.send(boost::optional<int>());
         if (t >= 5000)
@@ -93,35 +95,44 @@ int main(int argc, char* argv[])
     }
     kill1();
     kill2();
+    kill3();
     for (auto it = out.begin(); it != out.end(); ++it)
         std::cout << *it << std::endl;
     assert(out == std::vector<std::string>({
-        "ask 0",
-        "tick 500",
-        "ask 666",
-        "tick 1000",
-        "ask 1332",
-        "tick 1500",
-        "ask 1998",
-        "tick 2000",
-        "tick 2500",
-        "ask 2664",
-        "tick 3000",
-        "ask 3330",
-        "tick 3500",
-        "ask 3996",
-        "ask 4662",
-        "ask 5328",
-        "tick 5500",
-        "ask 5994",
-        "ask 6660",
-        "ask 7326",
-        "tick 7500",
-        "ask 7992",
-        "ask 8658",
-        "ask 9324",
-        "tick 9500",
-        "ask 9990"
+        "    0 ---",
+        "  500 one",
+        "  666 ---",
+        " 1000 one",
+        " 1332 ---",
+        " 1429 two",
+        " 1500 one",
+        " 1998 ---",
+        " 2000 one",
+        " 2500 one",
+        " 2664 ---",
+        " 2858 two",
+        " 3000 one",
+        " 3330 ---",
+        " 3500 one",
+        " 3996 ---",
+        " 4287 two",
+        " 4662 ---",
+        " 5328 ---",
+        " 5500 one",
+        " 5716 two",
+        " 5994 ---",
+        " 6660 ---",
+        " 7145 two",
+        " 7326 ---",
+        " 7500 one",
+        " 7992 ---",
+        " 8574 two",
+        " 8658 ---",
+        " 9324 ---",
+        " 9500 one",
+        " 9990 ---",
+        "10003 two",
+        "10656 ---"
     }));
     std::cout << "PASS" << std::endl;
     return 0;

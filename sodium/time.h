@@ -4,23 +4,67 @@
 #include <sodium/sodium.h>
 #include <memory>
 #include <boost/optional.hpp>
-#include <queue>
+#include <set>
 
 namespace sodium {
     namespace impl {
+        // Note: Smallest value is considered to be highest priority, which is
+        // the opposite to std::thread_safe_priority_queue.
         template <typename T>
-        class priority_queue : public std::priority_queue<T, std::vector<T>>
+        class thread_safe_priority_queue
         {
+            private:
+#if !defined(SODIUM_SINGLE_THREADED)
+                std::mutex lock;
+#endif
+                std::set<T> c;
+
             public:
-                // To do: Improve performance
+                void push(const T& value) {
+#if !defined(SODIUM_SINGLE_THREADED)
+                    lock.lock();
+#endif
+                    c.insert(value);
+#if !defined(SODIUM_SINGLE_THREADED)
+                    lock.unlock();
+#endif
+                }
+                template <class Fn>
+                boost::optional<T> pop_if(Fn f) {
+#if !defined(SODIUM_SINGLE_THREADED)
+                    lock.lock();
+#endif
+                    if (!c.empty() && f(*c.begin())) {
+                        boost::optional<T> ret(*c.begin());
+                        c.erase(c.begin());
+#if !defined(SODIUM_SINGLE_THREADED)
+                        lock.unlock();
+#endif
+                        return ret;
+                    }
+#if !defined(SODIUM_SINGLE_THREADED)
+                    lock.unlock();
+#endif
+                    return boost::optional<T>();
+                }
                 bool remove(const T& value) {
-                    auto it = std::find(this->c.begin(), this->c.end(), value);
-                    if (it != this->c.end()) {
-                        this->c.erase(it);
+#if !defined(SODIUM_SINGLE_THREADED)
+                    lock.lock();
+#endif
+                    auto it = c.find(value);
+                    if (it == c.end()) {
+#if !defined(SODIUM_SINGLE_THREADED)
+                        lock.unlock();
+#endif
+                        return false;
+                    }
+                    else {
+                        c.erase(it);
+#if !defined(SODIUM_SINGLE_THREADED)
+                        lock.unlock();
+#endif
                         return true;
                     }
-                    else
-                        return false;
                 }
         };
     };
@@ -48,16 +92,14 @@ namespace sodium {
             event(T t_, stream_sink<T> sAlarm_snk_)
                 : t(t_), sAlarm_snk(sAlarm_snk_)
             {
+                // This is called inside a listen() handler and this is under a global
+                // transaction lock, so there can't be any race conditions.
                 seq = ++next_seq;
             }
-            // Note: This is really a greater-than operation in terms of the numbers.
-            // So the "greatest" element is the earliest time.
-            // This means that std::priority_queue will give us the earliest alarm
-            // for top() and pop().
             bool operator < (const event& other) const {
-                if (t > other.t) return true;
-                if (t < other.t) return false;
-                return seq > other.seq;
+                if (t < other.t) return true;
+                if (t > other.t) return false;
+                return seq < other.seq;
             }
             bool operator == (const event& other) const {
                 return seq == other.seq;
@@ -73,14 +115,8 @@ namespace sodium {
             timer_system_base(
                 cell<T> time_,
                 SODIUM_SHARED_PTR<timer_system_impl<T>> impl_,
-                SODIUM_SHARED_PTR<priority_queue<event<T>>> event_queue_
-#if !defined(SODIUM_SINGLE_THREADED)
-                , SODIUM_SHARED_PTR<std::mutex> lock_
-#endif
+                SODIUM_SHARED_PTR<thread_safe_priority_queue<event<T>>> event_queue_
             ) : time(time_), impl(impl_), event_queue(event_queue_)
-#if !defined(SODIUM_SINGLE_THREADED)
-            , lock(lock_)
-#endif
             {}
 
         private:
@@ -89,21 +125,11 @@ namespace sodium {
                 boost::optional<event<T>> current;
                 boost::optional<std::function<void()>> cancel_current;
                 boost::optional<T> tAl;
-                void do_cancel(const SODIUM_SHARED_PTR<priority_queue<event<T>>>& event_queue
-#if !defined(SODIUM_SINGLE_THREADED)
-                               , const SODIUM_SHARED_PTR<std::mutex>& lock
-#endif
-                               )
+                void do_cancel(const SODIUM_SHARED_PTR<thread_safe_priority_queue<event<T>>>& event_queue)
                 {
                     if (this->cancel_current) {
                         this->cancel_current.get()();
-#if !defined(SODIUM_SINGLE_THREADED)
-                        lock->lock();
-#endif
                         event_queue->remove(this->current.get());
-#if !defined(SODIUM_SINGLE_THREADED)
-                        lock->unlock();
-#endif
                     }
                     this->cancel_current = boost::optional<std::function<void()>>();
                     this->current = boost::optional<event<T>>();
@@ -120,30 +146,13 @@ namespace sodium {
                 SODIUM_SHARED_PTR<at_state> state(new at_state);
                 const auto& impl_(this->impl);
                 const auto& event_queue_(this->event_queue);
-#if !defined(SODIUM_SINGLE_THREADED)
-                const auto& lock_(this->lock);
-#endif
                 auto kill = tAlarm.value().listen(
-                        [state, impl_, event_queue_
-#if !defined(SODIUM_SINGLE_THREADED)
-                        , lock_
-#endif
-                        , tAlarm, sAlarm_snk] (const boost::optional<T>& o_tAl) {
-                    state->do_cancel(event_queue_
-#if !defined(SODIUM_SINGLE_THREADED)
-                        , lock_
-#endif
-                        );
+                        [state, impl_, event_queue_, tAlarm, sAlarm_snk] (const boost::optional<T>& o_tAl) {
+                    state->do_cancel(event_queue_);
                     if (o_tAl) {
                         const auto& tAl = o_tAl.get();
                         state->current = boost::make_optional(event<T>(tAl, sAlarm_snk));
-#if !defined(SODIUM_SINGLE_THREADED)
-                        lock_->lock();
-#endif
                         event_queue_->push(state->current.get());
-#if !defined(SODIUM_SINGLE_THREADED)
-                        lock_->unlock();
-#endif
                         state->cancel_current = impl_->set_timer(tAl, [] () {
                                     // Open and close a transaction to trigger queued
                                     // events to run.
@@ -152,17 +161,9 @@ namespace sodium {
                                 });
                     }
                 });
-                auto sa = sAlarm_snk.add_cleanup([kill, state, event_queue_
-#if !defined(SODIUM_SINGLE_THREADED)
-                    , lock_
-#endif
-                    ] () {
+                auto sa = sAlarm_snk.add_cleanup([kill, state, event_queue_] () {
                     kill();
-                    state->do_cancel(event_queue_
-#if !defined(SODIUM_SINGLE_THREADED)
-                        , lock_
-#endif
-                        );
+                    state->do_cancel(event_queue_);
                 });
                 trans0.close();
                 return sa;
@@ -170,10 +171,7 @@ namespace sodium {
             cell<T> time;
         private:
             SODIUM_SHARED_PTR<timer_system_impl<T>> impl;
-            SODIUM_SHARED_PTR<priority_queue<event<T>>> event_queue;
-#if !defined(SODIUM_SINGLE_THREADED)
-            SODIUM_SHARED_PTR<std::mutex> lock;
-#endif
+            SODIUM_SHARED_PTR<thread_safe_priority_queue<event<T>>> event_queue;
         };
     }
 
@@ -189,22 +187,14 @@ namespace sodium {
         static impl::timer_system_base<T> construct(SODIUM_SHARED_PTR<timer_system_impl<T>> impl) {
             transaction trans0;
             cell_sink<T> time_snk(impl->now());
-            SODIUM_SHARED_PTR<impl::priority_queue<impl::event<T>>> q(new impl::priority_queue<impl::event<T>>);
+            SODIUM_SHARED_PTR<impl::thread_safe_priority_queue<impl::event<T>>> event_queue(
+                new impl::thread_safe_priority_queue<impl::event<T>>);
             SODIUM_SHARED_PTR<std::mutex> lock(new std::mutex);
-            trans0.on_start([impl, time_snk, q, lock] () {
+            trans0.on_start([impl, time_snk, event_queue, lock] () {
                 T t = impl->now();
-                lock->lock();
                 while (true) {
-                    boost::optional<impl::event<T>> o_event;
-                    if (!q->empty()) {
-                        const impl::event<T>& e = q->top();
-                        if (e.t <= t) {
-                            o_event = boost::optional<impl::event<T>>(e);
-                            q->pop();
-                            // TO DO: Detect infinite loops!
-                        }
-                    }
-                    lock->unlock();
+                    boost::optional<impl::event<T>> o_event = event_queue->pop_if(
+                        [t] (const impl::event<T>& e) { return e.t <= t; });
                     if (o_event) {
                         const auto& e = o_event.get();
                         // Two separate transactions
@@ -217,11 +207,7 @@ namespace sodium {
                 }
                 time_snk.send(t);
             });
-            return impl::timer_system_base<T>(time_snk, impl, q
-#if !defined(SODIUM_SINGLE_THREADED)
-                , lock
-#endif
-                );
+            return impl::timer_system_base<T>(time_snk, impl, event_queue);
         }
     };
 
