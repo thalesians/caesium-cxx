@@ -67,6 +67,30 @@ void test_sodium::map()
     CPPUNIT_ASSERT(shouldBe == *out);
 }
 
+void test_sodium::map_optional()
+{
+    stream_sink<int> e;
+    stream<string> m = e.map_optional([] (const int& x) {
+        if ((x & 1) == 1) {  // If odd
+            char buf[128];
+            sprintf(buf, "%d", x);
+            return make_optional(string(buf));
+        }
+        else
+            return optional<string>();
+    });
+    std::shared_ptr<vector<string> > out = std::make_shared<vector<string> >();
+    auto unlisten = m.listen([out] (const string& x) { out->push_back(x); });
+    e.send(5);
+    e.send(6);
+    e.send(7);
+    e.send(8);
+    e.send(9);
+    unlisten();
+    vector<string> shouldBe = { string("5"), string("7"), string("9") };
+    CPPUNIT_ASSERT(shouldBe == *out);
+}
+
 void test_sodium::merge_non_simultaneous()
 {
     stream_sink<int> e1;

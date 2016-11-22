@@ -17,6 +17,7 @@ class test_sodium : public CppUnit::TestFixture {
     // stream tests
     CPPUNIT_TEST(stream1);
     CPPUNIT_TEST(map);
+    CPPUNIT_TEST(map_optional);
     CPPUNIT_TEST(merge_non_simultaneous);
     CPPUNIT_TEST(filter);
     CPPUNIT_TEST(filter_optional1);
@@ -75,6 +76,7 @@ public:
 
     void stream1();
     void map();
+    void map_optional();
     void merge_non_simultaneous();
     void coalesce();
     void filter();

@@ -39,6 +39,7 @@ namespace sodium {
     template <typename A> class cell_sink;
     template <typename A> class cell_loop;
     template <typename A> class stream_loop;
+    template <typename A> class stream_sink;
     template <typename A, typename B>
     cell<B> apply(const cell<std::function<B(const A&)>>& bf, const cell<A>& ba);
     template <typename A>
@@ -744,11 +745,10 @@ namespace sodium {
     template <typename A>
     class stream : protected impl::stream_ {
         template <typename AA> friend class stream;
-        template <typename AA> friend class stream_sink;
+        template <typename AA> friend class sodium::stream_sink;
         template <typename AA> friend class cell;
         template <typename AA> friend class cell_sink;
         template <typename AA> friend class cell_loop;
-        template <typename AA> friend class stream_sink;
         template <typename AA> friend stream<AA> filter_optional(const stream<boost::optional<AA>>& input);
         template <typename AA> friend stream<AA> switch_s(const cell<stream<AA>>& bea);
         template <typename AA> friend stream<AA> split(const stream<std::list<AA>>& e);
@@ -805,6 +805,19 @@ namespace sodium {
                 typedef typename std::result_of<Fn(A)>::type B;
                 transaction trans;
                 auto sa = stream<B>(impl::map_(trans.impl(), SODIUM_DETYPE_FUNCTION1(A,B,f), *this));
+                trans.close();
+                return sa;
+            }
+
+            /*!
+             * map() to an optional and only let present values through. Equivalent to map()
+             * followed by filter_optional().
+             */
+            template <typename Fn>
+            stream<typename std::remove_reference<decltype(std::declval<typename std::result_of<Fn(A)>::type>().get())>::type> map_optional(const Fn& f) const {
+                using B = typename std::remove_reference<decltype(std::declval<typename std::result_of<Fn(A)>::type>().get())>::type;
+                transaction trans;
+                auto sa = filter_optional<B>(map(f));
                 trans.close();
                 return sa;
             }
