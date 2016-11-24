@@ -49,6 +49,7 @@ struct test_impl : sodium::timer_system_impl<int>
     }
 
     void set_time(int t) {
+        now_ = t;
         while (true) {
             boost::optional<entry> oe = entries.pop_if([t] (const entry& e) { return e.t <= t; });
             if (oe)
@@ -56,7 +57,6 @@ struct test_impl : sodium::timer_system_impl<int>
             else
                 break;
         }
-        now_ = t;
     }
 };
 
