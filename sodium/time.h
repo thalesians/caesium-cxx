@@ -79,8 +79,8 @@ namespace sodium {
          * This function MUST be thread safe.
          *
          * @return A function that can be used to cancel the timer. This function MUST
-         *     be thread safe and must guarantee that callback won't be called after
-         *     it has returned.
+         *     be thread safe. It does NOT need to guarantee that the callback won't
+         *     be called after it has returned.
          */
         virtual std::function<void()> set_timer(T t, std::function<void()> callback) = 0;
 

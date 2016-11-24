@@ -8,8 +8,6 @@ int next_seq = 0;
 
 struct test_impl : sodium::timer_system_impl<int>
 {
-    std::mutex lock;
-
     test_impl() : now_(0) {}
 
     struct entry {
@@ -27,6 +25,7 @@ struct test_impl : sodium::timer_system_impl<int>
             return seq == other.seq;
         }
     };
+    std::mutex lock;
     sodium::impl::thread_safe_priority_queue<entry> entries;
     int now_;
 
@@ -35,8 +34,8 @@ struct test_impl : sodium::timer_system_impl<int>
      * This function MUST be thread safe.
      *
      * @return A function that can be used to cancel the timer. This function MUST
-     *     be thread safe and must guarantee that callback won't be called after
-     *     it has returned.
+     *     be thread safe. It does NOT need to guarantee that the callback won't
+     *     be called after it has returned.
      */
     virtual std::function<void()> set_timer(int t, std::function<void()> callback)
     {
@@ -61,7 +60,9 @@ struct test_impl : sodium::timer_system_impl<int>
     void set_time(int t) {
         now_ = t;
         while (true) {
+            lock.lock();
             boost::optional<entry> oe = entries.pop_if([t] (const entry& e) { return e.t <= t; });
+            lock.unlock();
             if (oe)
                 oe.get().callback();
             else
