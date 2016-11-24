@@ -17,9 +17,9 @@ struct test_impl : sodium::timer_system_impl<int>
         std::function<void()> callback;
         int seq;
         bool operator < (const entry& other) const {
-            if (t > other.t) return true;
-            if (t < other.t) return false;
-            return seq > other.seq;
+            if (t < other.t) return true;
+            if (t > other.t) return false;
+            return seq < other.seq;
         }
         bool operator == (const entry& other) const {
             return seq == other.seq;
