@@ -4,18 +4,16 @@
 #include <iostream>
 #include <assert.h>
 
-int next_seq = 0;
-
 struct test_impl : sodium::timer_system_impl<int>
 {
-    test_impl() : now_(0) {}
+    test_impl() : next_seq(0), now_(0) {}
 
     struct entry {
-        entry(int t_, std::function<void()> callback_)
-        : t(t_), callback(callback_), seq(++next_seq) {}
+        entry(int t_, std::function<void()> callback_, long long seq_)
+        : t(t_), callback(callback_), seq(seq_) {}
         int t;
         std::function<void()> callback;
-        int seq;
+        long long seq;
         bool operator < (const entry& other) const {
             if (t < other.t) return true;
             if (t > other.t) return false;
@@ -25,8 +23,10 @@ struct test_impl : sodium::timer_system_impl<int>
             return seq == other.seq;
         }
     };
+
     std::mutex lock;
     sodium::impl::thread_safe_priority_queue<entry> entries;
+    long long next_seq;
     int now_;
 
     /*!
@@ -39,8 +39,8 @@ struct test_impl : sodium::timer_system_impl<int>
      */
     virtual std::function<void()> set_timer(int t, std::function<void()> callback)
     {
-        entry e(t, callback);
         lock.lock();
+        entry e(t, callback, ++next_seq);
         entries.push(e);
         lock.unlock();
         return [this, e] () {
