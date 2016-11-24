@@ -8,6 +8,8 @@ int next_seq = 0;
 
 struct test_impl : sodium::timer_system_impl<int>
 {
+    std::mutex lock;
+
     test_impl() : now_(0) {}
 
     struct entry {
@@ -30,14 +32,22 @@ struct test_impl : sodium::timer_system_impl<int>
 
     /*!
      * Set a timer that will execute the specified callback at the specified time.
-     * @return A function that can be used to cancel the timer.
+     * This function MUST be thread safe.
+     *
+     * @return A function that can be used to cancel the timer. This function MUST
+     *     be thread safe and must guarantee that callback won't be called after
+     *     it has returned.
      */
     virtual std::function<void()> set_timer(int t, std::function<void()> callback)
     {
         entry e(t, callback);
-        entries.push(entry(t, callback));
+        lock.lock();
+        entries.push(e);
+        lock.unlock();
         return [this, e] () {
+            lock.lock();
             entries.remove(e);
+            lock.unlock();
         };
     }
 

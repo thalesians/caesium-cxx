@@ -33,6 +33,9 @@ test_sodium: $(OBJECT_FILES) test_sodium.o
 test_time: $(OBJECT_FILES) test_time.o
 	$(CXX) -o $@ $(OBJECT_FILES) test_time.o -lpthread
 
+main: $(OBJECT_FILES) main.o
+	$(CXX) -o $@ $(OBJECT_FILES) main.o -lpthread
+
 memory/release-sink-machinery: $(OBJECT_FILES) memory/release-sink-machinery.o
 	$(CXX) -o $@ $(OBJECT_FILES) memory/release-sink-machinery.o -lpthread
 

@@ -69,11 +69,18 @@ namespace sodium {
         };
     };
 
+    /*!
+     * An implementation of a timer system.
+     */
     template <typename T>
     struct timer_system_impl {
         /*!
          * Set a timer that will execute the specified callback at the specified time.
-         * @return A function that can be used to cancel the timer.
+         * This function MUST be thread safe.
+         *
+         * @return A function that can be used to cancel the timer. This function MUST
+         *     be thread safe and must guarantee that callback won't be called after
+         *     it has returned.
          */
         virtual std::function<void()> set_timer(T t, std::function<void()> callback) = 0;
 
