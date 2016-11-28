@@ -1181,10 +1181,11 @@ namespace sodium {
                 return cb;
             }
 
-            cell<int> count() const
+            template<class B = int>
+            cell<B> count(const B& initial=0) const
             {
-                return accum<int>(0,
-                    [] (const A&, const int& total) -> int {  return total+1; }
+                return accum<B>(initial,
+                    [] (const A&, const B& total) -> B { return total+1; }
                 );
             }
 
