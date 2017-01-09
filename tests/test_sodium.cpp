@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2012, Stephen Blackheath and Anthony Jones
+ * Copyright (c) 2012-2016, Stephen Blackheath and Anthony Jones
  * Released under a BSD3 licence.
  *
  * C++ implementation courtesy of International Telematics Ltd.
@@ -7,6 +7,7 @@
 
 #include "test_sodium.h"
 #include <sodium/sodium.h>
+#include <sodium/router.h>
 #include <boost/optional.hpp>
 
 #include <cppunit/ui/text/TestRunner.h>
@@ -940,6 +941,149 @@ void test_sodium::cant_send_in_handler()
     catch (const std::runtime_error&) {
         kill();  // Pass!
     }
+}
+
+struct Packet {
+    Packet(int address_, std::string payload_)
+    : address(address_),
+      payload(payload_)
+    {
+    }
+    int address;
+    std::string payload;
+};
+
+void test_sodium::router1()
+{
+    stream_sink<Packet> s;
+    router<Packet, int> r(s, [] (const Packet& pkt) { return pkt.address; });
+
+    stream<Packet> one = r.filter_equals(1);
+    auto out_one = std::make_shared<vector<std::string>>();
+    auto kill_one = one.listen([out_one] (const Packet& p) {
+            out_one->push_back(p.payload);
+        });
+
+    stream<Packet> two = r.filter_equals(2);
+    auto out_two = std::make_shared<vector<std::string>>();
+    auto kill_two = two.listen([out_two] (const Packet& p) {
+            out_two->push_back(p.payload);
+        });
+
+    stream<Packet> three = r.filter_equals(3);
+    auto out_three = std::make_shared<vector<std::string>>();
+    auto kill_three = three.listen([out_three] (const Packet& p) {
+            out_three->push_back(p.payload);
+        });
+
+    s.send(Packet(1, "dog"));
+    s.send(Packet(3, "manuka"));
+    s.send(Packet(2, "square"));
+    s.send(Packet(3, "tawa"));
+    s.send(Packet(2, "circle"));
+    s.send(Packet(1, "otter"));
+    s.send(Packet(1, "lion"));
+    s.send(Packet(2, "rectangle"));
+    s.send(Packet(3, "rata"));
+    s.send(Packet(4, "kauri"));
+
+    kill_one();
+    kill_two();
+    kill_three();
+
+    CPPUNIT_ASSERT(vector<string>({ "dog", "otter", "lion" }) == *out_one);
+    CPPUNIT_ASSERT(vector<string>({ "square", "circle", "rectangle" }) == *out_two);
+    CPPUNIT_ASSERT(vector<string>({ "manuka", "tawa", "rata" }) == *out_three);
+}
+
+void test_sodium::router2()
+{
+    stream_sink<Packet> s;
+    router<Packet, int> r(s, [] (const Packet& pkt) { return pkt.address; });
+
+    stream<Packet> one = r.filter_equals(1);
+    auto out_one = std::make_shared<vector<std::string>>();
+    auto kill_one = one.listen([out_one] (const Packet& p) {
+            out_one->push_back(p.payload);
+        });
+
+    // Test filtering twice with the same value.
+    stream<Packet> two = r.filter_equals(1);
+    auto out_two = std::make_shared<vector<std::string>>();
+    auto kill_two = two.listen([out_two] (const Packet& p) {
+            out_two->push_back(p.payload);
+        });
+
+    stream<Packet> three = r.filter_equals(3);
+    auto out_three = std::make_shared<vector<std::string>>();
+    auto kill_three = three.listen([out_three] (const Packet& p) {
+            out_three->push_back(p.payload);
+        });
+
+    s.send(Packet(1, "dog"));
+    s.send(Packet(3, "manuka"));
+    s.send(Packet(2, "square"));
+    s.send(Packet(3, "tawa"));
+    s.send(Packet(2, "circle"));
+    s.send(Packet(1, "otter"));
+    s.send(Packet(1, "lion"));
+    s.send(Packet(2, "rectangle"));
+    s.send(Packet(3, "rata"));
+    s.send(Packet(4, "kauri"));
+
+    kill_one();
+    kill_two();
+    kill_three();
+
+    CPPUNIT_ASSERT(vector<string>({ "dog", "otter", "lion" }) == *out_one);
+    CPPUNIT_ASSERT(vector<string>({ "dog", "otter", "lion" }) == *out_two);
+    CPPUNIT_ASSERT(vector<string>({ "manuka", "tawa", "rata" }) == *out_three);
+}
+
+void test_sodium::router_loop1()
+{
+    router_loop<Packet, int> r;
+
+    stream<Packet> one = r.filter_equals(1);
+    auto out_one = std::make_shared<vector<std::string>>();
+    auto kill_one = one.listen([out_one] (const Packet& p) {
+            out_one->push_back(p.payload);
+        });
+
+    stream_sink<Packet> s;
+    router<Packet, int> r0(s, [] (const Packet& pkt) { return pkt.address; });
+    r.loop(r0);
+
+    stream<Packet> two = r.filter_equals(2);
+    auto out_two = std::make_shared<vector<std::string>>();
+    auto kill_two = two.listen([out_two] (const Packet& p) {
+            out_two->push_back(p.payload);
+        });
+
+    stream<Packet> three = r.filter_equals(3);
+    auto out_three = std::make_shared<vector<std::string>>();
+    auto kill_three = three.listen([out_three] (const Packet& p) {
+            out_three->push_back(p.payload);
+        });
+
+    s.send(Packet(1, "dog"));
+    s.send(Packet(3, "manuka"));
+    s.send(Packet(2, "square"));
+    s.send(Packet(3, "tawa"));
+    s.send(Packet(2, "circle"));
+    s.send(Packet(1, "otter"));
+    s.send(Packet(1, "lion"));
+    s.send(Packet(2, "rectangle"));
+    s.send(Packet(3, "rata"));
+    s.send(Packet(4, "kauri"));
+
+    kill_one();
+    kill_two();
+    kill_three();
+
+    CPPUNIT_ASSERT(vector<string>({ "dog", "otter", "lion" }) == *out_one);
+    CPPUNIT_ASSERT(vector<string>({ "square", "circle", "rectangle" }) == *out_two);
+    CPPUNIT_ASSERT(vector<string>({ "manuka", "tawa", "rata" }) == *out_three);
 }
 
 int main(int argc, char* argv[])

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2012, Stephen Blackheath and Anthony Jones
+ * Copyright (c) 2012-2016, Stephen Blackheath and Anthony Jones
  * Released under a BSD3 licence.
  *
  * C++ implementation courtesy of International Telematics Ltd.
@@ -69,6 +69,9 @@ class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST(lift_from_simultaneous);
     CPPUNIT_TEST(stream_sink_combining);
     CPPUNIT_TEST(cant_send_in_handler);
+    CPPUNIT_TEST(router1);
+    CPPUNIT_TEST(router2);
+    CPPUNIT_TEST(router_loop1);
     CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -129,6 +132,9 @@ public:
     void lift_from_simultaneous();
     void stream_sink_combining();
     void cant_send_in_handler();
+    void router1();
+    void router2();
+    void router_loop1();
 };
 
 #endif

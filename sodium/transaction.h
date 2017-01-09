@@ -159,6 +159,7 @@ namespace sodium {
 
                 bool link(void* holder, const SODIUM_SHARED_PTR<node>& target);
                 void unlink(void* holder);
+                void unlink_by_target(const SODIUM_SHARED_PTR<node>& target);
 
             private:
                 bool ensure_bigger_than(std::set<node*>& visited, rank_t limit);

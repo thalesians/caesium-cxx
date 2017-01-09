@@ -211,6 +211,26 @@ namespace sodium {
             }
         }
 
+        void node::unlink_by_target(const SODIUM_SHARED_PTR<node>& targ)
+        {
+            SODIUM_FORWARD_LIST<node::target>::iterator this_it;
+            for (SODIUM_FORWARD_LIST<node::target>::iterator last_it = targets.before_begin(); true; last_it = this_it) {
+                this_it = last_it;
+                ++this_it;
+                if (this_it == targets.end())
+                    break;
+                if (this_it->n == targ) {
+                    targets.erase_after(last_it);
+                    if (targ) {
+                        boost::intrusive_ptr<listen_impl_func<H_STREAM> > li(
+                            reinterpret_cast<listen_impl_func<H_STREAM>*>(listen_impl.get()));
+                        targ->sources.remove(li);
+                    }
+                    break;
+                }
+            }
+        }
+
         bool node::ensure_bigger_than(std::set<node*>& visited, rank_t limit)
         {
             if (rank > limit || visited.find(this) != visited.end())
@@ -338,14 +358,29 @@ namespace sodium {
                 this->impl_ = NULL;
                 partition* part = impl__->part;
                 if (part->depth == 1) {
-                    impl__->process_transactional();
-                    part->depth--;
+                    try {
+                        impl__->process_transactional();
+                        part->depth--;
 #if !defined(SODIUM_SINGLE_THREADED) && defined(SODIUM_USE_PTHREAD_SPECIFIC)
-                    pthread_setspecific(current_transaction_key, NULL);
+                        pthread_setspecific(current_transaction_key, NULL);
 #else
-                    global_current_transaction = NULL;
+                        global_current_transaction = NULL;
 #endif
-                    delete impl__;
+                        delete impl__;
+                    }
+                    catch (...) {
+                        part->depth--;
+#if !defined(SODIUM_SINGLE_THREADED) && defined(SODIUM_USE_PTHREAD_SPECIFIC)
+                        pthread_setspecific(current_transaction_key, NULL);
+#else
+                        global_current_transaction = NULL;
+#endif
+                        delete impl__;
+#if !defined(SODIUM_SINGLE_THREADED)
+                        part->mx.unlock();
+#endif
+                        throw;
+                    }
                     part->process_post();
 #if !defined(SODIUM_SINGLE_THREADED)
                     part->mx.unlock();
