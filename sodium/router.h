@@ -105,10 +105,9 @@ namespace sodium {
                     if (table->node->link(NULL, target))
                         trans1.impl()->to_regen = true;
     
-                    partition* part = trans1.impl()->part;
                     stream<A> out(stream<A>(std::get<0>(p)).unsafe_add_cleanup(
-                        new std::function<void()>([table, it, part] () {
-                            impl::transaction_ trans2(part);
+                        new std::function<void()>([table, it] () {
+                            impl::transaction_ trans2;
                             trans2.impl()->last([table, it] () {
                                 auto target2 = it->second;
                                 table->table.erase(it);

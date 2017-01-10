@@ -233,12 +233,12 @@ namespace sodium {
                     SODIUM_SHARED_PTR<node> n2 = n_weak.lock();
                     if (n2) {
 #if !defined(SODIUM_SINGLE_THREADED)
-                        trans1->part->mx.lock();
+                        transaction_impl::part->mx.lock();
 #endif
                         if (n2->link(h.get(), target))
                             trans1->to_regen = true;
 #if !defined(SODIUM_SINGLE_THREADED)
-                        trans1->part->mx.unlock();
+                        transaction_impl::part->mx.unlock();
 #endif
                         if (!suppressEarlierFirings && n2->firings.begin() != n2->firings.end()) {
                             SODIUM_FORWARD_LIST<light_ptr> firings = n2->firings;
@@ -247,10 +247,9 @@ namespace sodium {
                                     h->handle(target, trans2, *it);
                             });
                         }
-                        partition* part = trans1->part;
                         SODIUM_SHARED_PTR<holder>* h_keepalive = new SODIUM_SHARED_PTR<holder>(h);
-                        return new std::function<void()>([part, n_weak, h_keepalive] () {  // Unregister listener
-                            impl::transaction_ trans2(part);
+                        return new std::function<void()>([n_weak, h_keepalive] () {  // Unregister listener
+                            impl::transaction_ trans2;
                             trans2.impl()->last([n_weak, h_keepalive] () {
                                 std::shared_ptr<node> n3 = n_weak.lock();
                                 if (n3)

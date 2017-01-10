@@ -24,6 +24,8 @@ namespace sodium {
 
     namespace impl {
 
+        partition* transaction_impl::part;
+
         void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_STREAM>* p)
         {
             spin_lock* l = spin_get_and_lock(p);
@@ -118,7 +120,6 @@ namespace sodium {
     void partition::process_post()
     {
 #if !defined(SODIUM_SINGLE_THREADED)
-        mx.lock();
         // Prevent it running on multiple threads at the same time, so posts
         // will be handled in order for the partition.
         if (!processing_post) {
@@ -148,14 +149,7 @@ namespace sodium {
 #endif
 #if !defined(SODIUM_SINGLE_THREADED)
         }
-        mx.unlock();
 #endif
-    }
-
-    partition* def_part::part()
-    {
-        static partition part;
-        return &part;
     }
 
     namespace impl {
@@ -253,11 +247,12 @@ namespace sodium {
                 return SODIUM_IMPL_RANK_T_MAX;
         }
 
-        transaction_impl::transaction_impl(partition* part_)
-            : part(part_),
-              to_regen(false),
+        transaction_impl::transaction_impl()
+            : to_regen(false),
               inCallback(0)
         {
+            if (part == nullptr)
+                part = new partition;
         }
 
         void transaction_impl::check_regen() {
@@ -306,35 +301,38 @@ namespace sodium {
             lastQ.push_back(action);
         }
 
-        transaction_::transaction_(partition* part)
-            : impl_(current_transaction(part))
+        transaction_::transaction_()
+            : impl_(current_transaction())
         {
             if (impl_ == NULL) {
+                if (transaction_impl::part == nullptr)
+                    transaction_impl::part = new partition;
 #if !defined(SODIUM_SINGLE_THREADED)
-                part->mx.lock();
+                transaction_impl::part->mx.lock();
 #endif
-                if (!part->processing_on_start_hooks) {
-                    part->processing_on_start_hooks = true;
+                if (!transaction_impl::part->processing_on_start_hooks) {
+                    transaction_impl::part->processing_on_start_hooks = true;
                     try {
-                        if (!part->shutting_down) {
-                            for (auto it = part->on_start_hooks.begin(); it != part->on_start_hooks.end(); ++it)
+                        if (!transaction_impl::part->shutting_down) {
+                            for (auto it = transaction_impl::part->on_start_hooks.begin();
+                                   it != transaction_impl::part->on_start_hooks.end(); ++it)
                                 (*it)();
                         }
-                        part->processing_on_start_hooks = false;
+                        transaction_impl::part->processing_on_start_hooks = false;
                     }
                     catch (...) {
-                        part->processing_on_start_hooks = false;
+                        transaction_impl::part->processing_on_start_hooks = false;
                         throw;
                     }
                 }
-                impl_ = new transaction_impl(part);
+                impl_ = new transaction_impl;
 #if !defined(SODIUM_SINGLE_THREADED) && defined(SODIUM_USE_PTHREAD_SPECIFIC)
                 pthread_setspecific(current_transaction_key, impl_);
 #else
                 global_current_transaction = impl_;
 #endif
             }
-            part->depth++;
+            transaction_impl::part->depth++;
         }
         
         transaction_::~transaction_()
@@ -342,7 +340,7 @@ namespace sodium {
             close();
         }
 
-        /*static*/ transaction_impl* transaction_::current_transaction(partition* part)
+        /*static*/ transaction_impl* transaction_::current_transaction()
         {
 #if !defined(SODIUM_SINGLE_THREADED) && defined(SODIUM_USE_PTHREAD_SPECIFIC)
             return reinterpret_cast<transaction_impl*>(pthread_getspecific(current_transaction_key));
@@ -356,7 +354,7 @@ namespace sodium {
             impl::transaction_impl* impl__(this->impl_);
             if (impl__) {
                 this->impl_ = NULL;
-                partition* part = impl__->part;
+                partition* part = transaction_impl::part;
                 if (part->depth == 1) {
                     try {
                         impl__->process_transactional();

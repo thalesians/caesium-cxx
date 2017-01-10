@@ -44,13 +44,6 @@ namespace sodium {
         bool shutting_down;
     };
 
-    /*!
-     * The default partition which gets chosen when you don't specify one.
-     */
-    struct def_part {
-        static partition* part();
-    };
-
     namespace impl {
         struct transaction_impl;
 
@@ -198,9 +191,9 @@ namespace sodium {
         };
 
         struct transaction_impl {
-            transaction_impl(partition* part);
+            transaction_impl();
             ~transaction_impl();
-            partition* part;
+            static partition* part;
             entryID next_entry_id;
             std::map<entryID, prioritized_entry> entries;
             std::multiset<std::pair<rank_t, entryID>> prioritizedQ;
@@ -222,12 +215,12 @@ namespace sodium {
             transaction_(const transaction_&) {}
             transaction_& operator = (const transaction_&) { return *this; };
         public:
-            transaction_(partition* part);
+            transaction_();
             ~transaction_();
             impl::transaction_impl* impl() const { return impl_; }
         protected:
             void close();
-            static transaction_impl* current_transaction(partition* part);
+            static transaction_impl* current_transaction();
         };
     };
 
@@ -235,11 +228,11 @@ namespace sodium {
     {
         private:
             // Disallow copying
-            transaction(const transaction&) : impl::transaction_(def_part::part()) {}
+            transaction(const transaction&) {}
             // Disallow copying
             transaction& operator = (const transaction&) { return *this; };
         public:
-            transaction() : impl::transaction_(def_part::part()) {}
+            transaction() {}
             /*!
              * The destructor will close the transaction, so normally close() isn't needed.
              * But, in some cases you might want to close it earlier, and close() will do this for you.
