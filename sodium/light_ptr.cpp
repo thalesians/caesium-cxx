@@ -41,22 +41,24 @@ namespace sodium {
     } \
      \
     Name& Name::operator = (const Name& other) { \
-        { \
-            GET_AND_LOCK; \
-            if (--count->c == 0) { \
-                UNLOCK; \
-                count->del(value); delete count; \
+        if (count != other.count) { \
+            { \
+                GET_AND_LOCK; \
+                if (--count->c == 0) { \
+                    UNLOCK; \
+                    count->del(value); delete count; \
+                } \
+                else { \
+                    UNLOCK; \
+                } \
             } \
-            else { \
+            value = other.value; \
+            count = other.count; \
+            { \
+                GET_AND_LOCK; \
+                count->c++; \
                 UNLOCK; \
             } \
-        } \
-        value = other.value; \
-        count = other.count; \
-        { \
-            GET_AND_LOCK; \
-            count->c++; \
-            UNLOCK; \
         } \
         return *this; \
     }
