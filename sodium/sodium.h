@@ -829,7 +829,7 @@ namespace sodium {
              * Map a function over this stream that always outputs a constant value.
              */
             template <typename B>
-            stream<B> map_to(const B& value) {
+            stream<B> map_to(const B& value) const {
                 return map([value] (const A&) -> B { return value; });
             }
 
