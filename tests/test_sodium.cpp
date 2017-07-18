@@ -257,6 +257,47 @@ void test_sodium::snapshot2()
     CPPUNIT_ASSERT(vector<string>({ string("100 0 5"), string("200 2 5"), string("300 1 5"), string("400 1 3") }) == *out);
 }
 
+/*!
+ * When the cell changes, give deltas between old and new values. The first delta
+ * is between a specified initial value and the cell's first value. The first
+ * value of a hold is defined as any event held in the first transaction, or,
+ * failing that, the default value passed to hold.
+ *
+ * The function f receives the arguments (update value, previous value).
+ */
+template <typename A, typename Fn>
+sodium::stream<typename std::result_of<Fn(A,A)>::type> deltas_with_initial(const sodium::cell<A>& ca, const A& a,
+    const Fn& f)
+{
+    using namespace sodium;
+    transaction trans;
+    stream<A> sValue = ca.value();
+    cell<A> previous = sValue.hold(a);
+    auto sOut = sValue.snapshot(previous, f);
+    trans.close();
+    return sOut;
+}
+
+void test_sodium::snapshot_initial_value()
+{
+    sodium::transaction trans;
+    stream_sink<int> sA;
+    stream_sink<sodium::unit> sB;
+    cell<int> a = sA.hold(5);
+    sA.send(10);
+    auto out = std::make_shared<vector<int>>();
+    auto unlisten = deltas_with_initial(a, 0, [] (int neu, int old) {
+        return neu - old;
+    }).listen([out] (const int& i) {
+        out->push_back(i);
+    });
+    trans.close();
+    sA.send(12);
+    sA.send(30);
+    unlisten();
+    CPPUNIT_ASSERT(vector<int>({ 10, 2, 18 }) == *out);
+}
+
 void test_sodium::value1()
 {
     cell_sink<int> b(9);

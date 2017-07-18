@@ -72,6 +72,7 @@ class test_sodium : public CppUnit::TestFixture {
     CPPUNIT_TEST(router1);
     CPPUNIT_TEST(router2);
     CPPUNIT_TEST(router_loop1);
+    CPPUNIT_TEST(snapshot_initial_value);
     CPPUNIT_TEST_SUITE_END();
 
 public:
@@ -135,6 +136,7 @@ public:
     void router1();
     void router2();
     void router_loop1();
+    void snapshot_initial_value();
 };
 
 #endif
