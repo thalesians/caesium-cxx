@@ -306,10 +306,10 @@ namespace sodium {
         struct cell_impl_concrete : cell_impl {
             cell_impl_concrete(
                 const stream_& updates_,
-                const state_t& state_,
+                state_t&& state_,
                 const SODIUM_SHARED_PTR<cell_impl>& parent_)
             : cell_impl(updates_, parent_),
-              state(state_)
+              state(std::move(state_))
             {
             }
             state_t state;
@@ -351,8 +351,27 @@ namespace sodium {
         };
 
         struct cell_state_lazy {
+        private:
+            // Don't allow copying because we have no valid implementation for that
+            // given our use of a pointer in pInitA.
+            cell_state_lazy(const cell_state_lazy&) {}
+            cell_state_lazy& operator = (const cell_state_lazy&) {
+                return *this;
+            }
+        public:
             cell_state_lazy(const std::function<light_ptr()>& initA)
             : pInitA(new std::function<light_ptr()>(initA)) {}
+            cell_state_lazy(cell_state_lazy&& other)
+            : pInitA(other.pInitA),
+              current(other.current),
+              update(other.update)
+            {
+                other.pInitA = NULL;
+            }
+            ~cell_state_lazy()
+            {
+                delete pInitA;
+            }
             std::function<light_ptr()>* pInitA;
             boost::optional<light_ptr> current;
             boost::optional<light_ptr> update;

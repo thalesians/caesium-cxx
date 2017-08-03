@@ -293,9 +293,8 @@ namespace sodium {
                 return SODIUM_SHARED_PTR<cell_impl>(new cell_impl_constant(initValue));
             else {
 #endif
-                cell_state state(initValue);
                 SODIUM_SHARED_PTR<cell_impl_concrete<cell_state> > impl(
-                    new cell_impl_concrete<cell_state>(input, state, std::shared_ptr<cell_impl>())
+                    new cell_impl_concrete<cell_state>(input, cell_state(initValue), std::shared_ptr<cell_impl>())
                 );
                 SODIUM_WEAK_PTR<cell_impl_concrete<cell_state> > impl_weak(impl);
                 impl->kill =
@@ -320,19 +319,22 @@ namespace sodium {
 
         SODIUM_SHARED_PTR<cell_impl> hold_lazy(transaction_impl* trans0, const std::function<light_ptr()>& initValue, const stream_& input)
         {
-            cell_state_lazy state(initValue);
             SODIUM_SHARED_PTR<cell_impl_concrete<cell_state_lazy> > impl(
-                new cell_impl_concrete<cell_state_lazy>(input, state, std::shared_ptr<cell_impl>())
+                new cell_impl_concrete<cell_state_lazy>(input, cell_state_lazy(initValue), std::shared_ptr<cell_impl>())
             );
+            SODIUM_WEAK_PTR<cell_impl_concrete<cell_state_lazy> > w_impl(impl);
             impl->kill =
                 input.listen_raw(trans0, SODIUM_SHARED_PTR<node>(new node(SODIUM_IMPL_RANK_T_MAX)),
                 new std::function<void(const std::shared_ptr<impl::node>&, transaction_impl*, const light_ptr&)>(
-                    [impl] (const std::shared_ptr<impl::node>& target, transaction_impl* trans, const light_ptr& ptr) {
-                        bool first = !impl->state.update;
-                        impl->state.update = boost::optional<light_ptr>(ptr);
-                        if (first)
-                            trans->last([impl] () { impl->state.finalize(); });
-                        send(target, trans, ptr);
+                    [w_impl] (const std::shared_ptr<impl::node>& target, transaction_impl* trans, const light_ptr& ptr) {
+                        SODIUM_SHARED_PTR<cell_impl_concrete<cell_state_lazy> > impl_ = w_impl.lock();
+                        if (impl_) {
+                            bool first = !impl_->state.update;
+                            impl_->state.update = boost::optional<light_ptr>(ptr);
+                            if (first)
+                                trans->last([impl_] () { impl_->state.finalize(); });
+                            send(target, trans, ptr);
+                        }
                     })
                 , false);
             return static_pointer_cast<cell_impl, cell_impl_concrete<cell_state_lazy>>(impl);
