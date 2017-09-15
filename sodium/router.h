@@ -30,7 +30,32 @@ namespace sodium {
             SODIUM_SHARED_PTR<routing_table<Selector>> table;
             std::vector<std::tuple<stream_loop<A>, Selector>> queued;
         };
-    }
+
+        template <typename A, typename Selector>
+        struct router_handler : listen_handler
+        {
+            router_handler(
+                std::function<Selector(const A&)> f_,
+                SODIUM_SHARED_PTR<routing_table<Selector>> table_)
+            : f(std::move(f_)),
+              table(std::move(table_))
+            {
+            }
+            std::function<Selector(const A&)> f;
+            SODIUM_SHARED_PTR<routing_table<Selector>> table;
+            virtual void handle(const SODIUM_SHARED_PTR<node>& target, transaction_impl* trans, const light_ptr& a)
+            {
+                Selector sel = f(*a.cast_ptr<A>(NULL));
+                std::vector<SODIUM_SHARED_PTR<impl::node>> targets;
+                for (auto it = table->table.lower_bound(sel);
+                        it != table->table.end() && it->first == sel;
+                        ++it)
+                    targets.push_back(it->second);
+                for (auto it = targets.begin(); it != targets.end(); ++it)
+                    send(*it, trans, a);
+            }
+        };
+    }  // end namespace impl
 
     template <typename A, typename Selector>
     class router_loop;
@@ -80,17 +105,7 @@ namespace sodium {
                 impl->table = SODIUM_SHARED_PTR<impl::routing_table<Selector>>(new impl::routing_table<Selector>(stream, target));
                 auto table(impl->table);
                 table->kill = in.listen_raw(trans1.impl(), target,
-                    new std::function<void(const std::shared_ptr<impl::node>&, impl::transaction_impl*, const light_ptr&)>(
-                        [f, table] (const SODIUM_SHARED_PTR<impl::node>&, impl::transaction_impl* trans2, const light_ptr& ptr) {
-                            Selector sel = f(*ptr.cast_ptr<A>(NULL));
-                            std::vector<SODIUM_SHARED_PTR<impl::node>> targets;
-                            for (auto it = table->table.lower_bound(sel);
-                                    it != table->table.end() && it->first == sel;
-                                    ++it)
-                                targets.push_back(it->second);
-                            for (auto it = targets.begin(); it != targets.end(); ++it)
-                                send(*it, trans2, ptr);
-                        }), false);
+                    new impl::router_handler<A, Selector>(f, table), false);
             }
 
             stream<A> filter_equals(Selector sel) const {

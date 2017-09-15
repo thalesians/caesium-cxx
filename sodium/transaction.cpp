@@ -67,11 +67,11 @@ namespace sodium {
             p->counts.dec_node();
             p->update_and_unlock(l);
         }
-        
+
         void holder::handle(const SODIUM_SHARED_PTR<node>& target, transaction_impl* trans, const light_ptr& value) const
         {
-            if (handler)
-                (*handler)(target, trans, value);
+            if (mi)
+                mi->handle(target, trans, value);
             else
                 send(target, trans, value);
         }
@@ -248,7 +248,8 @@ namespace sodium {
         }
 
         transaction_impl::transaction_impl()
-            : to_regen(false),
+            : prioritized_single(nullptr),
+              to_regen(false),
               inCallback(0)
         {
             if (part == nullptr)
@@ -259,41 +260,85 @@ namespace sodium {
             if (to_regen) {
                 to_regen = false;
                 prioritizedQ.clear();
-                for (std::map<entryID, prioritized_entry>::iterator it = entries.begin(); it != entries.end(); ++it)
-                    prioritizedQ.insert(pair<rank_t, entryID>(rankOf(it->second.target), it->first));
+                for (std::map<entryID, prioritized_entry*>::iterator it = entries.begin(); it != entries.end(); ++it)
+                    prioritizedQ.insert(pair<rank_t, entryID>(rankOf(it->second->target), it->first));
             }
         }
 
         transaction_impl::~transaction_impl()
         {
         }
+        
+        void coalesce_entry::process(transaction_impl* trans)
+        {
+            send(target, trans, coalesce->oValue.get());
+            coalesce->oValue = boost::optional<light_ptr>();
+        }
+
+        void send_entry::process(transaction_impl* trans)
+        {
+            trans->inCallback++;
+            try {
+                ((holder*)f->h)->handle(f->n, trans, a);
+                trans->inCallback--;
+            }
+            catch (...) {
+                trans->inCallback--;
+                throw;
+            }
+        }
+
+        void firing_entry::process(transaction_impl* trans)
+        {
+            for (SODIUM_FORWARD_LIST<light_ptr>::const_iterator it = firings.begin(); it != firings.end(); it++)
+                h->handle(target, trans, *it);
+        }
+
+        void switch_entry::process(transaction_impl* trans)
+        {
+            if (*pKillInner == NULL)
+                *pKillInner = bea.impl->sample().cast_ptr<stream_>(NULL)->listen_raw(trans, target, false);
+        }
+
+        void apply_entry::process(transaction_impl* trans)
+        {
+            auto f = *state->f.get().cast_ptr<std::function<light_ptr(const light_ptr&)>>(NULL);
+            send(target, trans, f(state->a.get()));
+            state->fired = false;
+        }
 
         void transaction_impl::process_transactional()
         {
             while (true) {
                 check_regen();
-                std::multiset<pair<rank_t, entryID>>::iterator pit = prioritizedQ.begin();
-                if (pit == prioritizedQ.end()) break;
-                std::map<entryID, prioritized_entry>::iterator eit = entries.find(pit->second);
-                assert(eit != entries.end());
-                std::function<void(transaction_impl*)> action = eit->second.action;
-                prioritizedQ.erase(pit);
-                entries.erase(eit);
-                action(this);
+                prioritized_entry* e;
+                // Lightweight case of a single entry.
+                if (prioritized_single != nullptr) {
+                    e = prioritized_single;
+                    prioritized_single = nullptr;
+                }
+                else {
+                    std::multiset<pair<rank_t, entryID>>::iterator pit = prioritizedQ.begin();
+                    if (pit == prioritizedQ.end()) break;
+                    std::map<entryID, prioritized_entry*>::iterator eit = entries.find(pit->second);
+                    assert(eit != entries.end());
+                    e = eit->second;
+                    prioritizedQ.erase(pit);
+                    entries.erase(eit);
+                }
+                try {
+                    e->process(this);
+                    delete e;
+                }
+                catch (...) {
+                    delete e;
+                    throw;
+                }
             }
             while (lastQ.begin() != lastQ.end()) {
                 (*lastQ.begin())();
                 lastQ.erase(lastQ.begin());
             }
-        }
-
-        void transaction_impl::prioritized(SODIUM_SHARED_PTR<node> target,
-                                           std::function<void(transaction_impl*)> f)
-        {
-            entryID id = next_entry_id;
-            next_entry_id = next_entry_id.succ();
-            entries.insert(pair<entryID, prioritized_entry>(id, prioritized_entry(target, std::move(f))));
-            prioritizedQ.insert(pair<rank_t, entryID>(rankOf(target), id));
         }
 
         void transaction_impl::last(const std::function<void()>& action)
@@ -302,11 +347,11 @@ namespace sodium {
         }
 
         transaction_::transaction_()
-            : impl_(current_transaction())
         {
+            if (transaction_impl::part == nullptr)
+                transaction_impl::part = new partition;
+            impl_ = current_transaction();
             if (impl_ == NULL) {
-                if (transaction_impl::part == nullptr)
-                    transaction_impl::part = new partition;
 #if !defined(SODIUM_SINGLE_THREADED)
                 transaction_impl::part->mx.lock();
 #endif

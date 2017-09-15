@@ -1,0 +1,14 @@
+﻿---
+BasedOnStyle: Google
+ColumnLimit: 80
+AccessModifierOffset: '4'
+AlwaysBreakTemplateDeclarations: 'false'
+IndentWidth: '4'
+NamespaceIndentation: All
+PointerAlignment: Left
+TabWidth: '4'
+UseTab: Never
+SpaceAfterTemplateKeyword: 'false'
+SpaceAfterTemplateKeyword: 'true'
+
+...

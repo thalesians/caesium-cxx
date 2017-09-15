@@ -25,7 +25,8 @@ namespace sodium {
         : value(other.value), count(other.count) \
     { \
         GET_AND_LOCK; \
-        count->c++; \
+        if (count != nullptr) \
+            count->c++; \
         UNLOCK; \
     } \
     \

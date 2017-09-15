@@ -8,9 +8,8 @@
 #define _SODIUM_TRANSACTION_H_
 
 #include <sodium/config.h>
-#include <sodium/count_set.h>
 #include <sodium/light_ptr.h>
-#include <sodium/lock_pool.h>
+#include <sodium/sodium_base.h>
 #include <boost/optional.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <sodium/unit.h>
@@ -19,12 +18,9 @@
 #include <list>
 #include <memory>
 #include <mutex>
-#include <forward_list>
 #include <tuple>
 
 namespace sodium {
-
-    class transaction_impl;
 
     struct partition {
         partition();
@@ -50,80 +46,23 @@ namespace sodium {
         typedef unsigned long rank_t;
         #define SODIUM_IMPL_RANK_T_MAX ULONG_MAX
 
-        class holder;
-
-        class node;
-        template <typename Allocator>
-        struct listen_impl_func {
-            typedef std::function<std::function<void()>*(
-                transaction_impl*,
-                const std::shared_ptr<impl::node>&,
-                const SODIUM_SHARED_PTR<holder>&,
-                bool)> closure;
-            listen_impl_func(closure* func_)
-                : func(func_) {}
-            ~listen_impl_func()
-            {
-                assert(cleanups.begin() == cleanups.end() && func == NULL);
-            }
-            count_set counts;
-            closure* func;
-            SODIUM_FORWARD_LIST<std::function<void()>*> cleanups;
-            inline void update_and_unlock(spin_lock* l) {
-                if (func && !counts.active()) {
-                    counts.inc_strong();
-                    l->unlock();
-                    for (auto it = cleanups.begin(); it != cleanups.end(); ++it) {
-                        (**it)();
-                        delete *it;
-                    }
-                    cleanups.clear();
-                    delete func;
-                    func = NULL;
-                    l->lock();
-                    counts.dec_strong();
-                }
-                if (!counts.alive()) {
-                    l->unlock();
-                    delete this;
-                }
-                else
-                    l->unlock();
-            }
-        };
-
         class holder {
             public:
+                holder() : mi(nullptr) {}
                 holder(
-                    std::function<void(const std::shared_ptr<impl::node>&, transaction_impl*, const light_ptr&)>* handler_
-                ) : handler(handler_) {}
+                    listen_handler* mi_
+                ) : mi(mi_)
+                {
+                }
                 ~holder() {
-                    delete handler;
+                    delete mi;
                 }
                 void handle(const SODIUM_SHARED_PTR<node>& target, transaction_impl* trans, const light_ptr& value) const;
 
             private:
                 std::function<void(const std::shared_ptr<impl::node>&, transaction_impl*, const light_ptr&)>* handler;
+                listen_handler* mi;
         };
-
-        struct H_STREAM {};
-        struct H_STRONG {};
-        struct H_NODE {};
-
-        void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_STREAM>* p);
-        void intrusive_ptr_release(sodium::impl::listen_impl_func<sodium::impl::H_STREAM>* p);
-        void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_STRONG>* p);
-        void intrusive_ptr_release(sodium::impl::listen_impl_func<sodium::impl::H_STRONG>* p);
-        void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_NODE>* p);
-        void intrusive_ptr_release(sodium::impl::listen_impl_func<sodium::impl::H_NODE>* p);
-
-        inline bool alive(const boost::intrusive_ptr<listen_impl_func<H_STRONG> >& li) {
-            return li && li->func != NULL;
-        }
-
-        inline bool alive(const boost::intrusive_ptr<listen_impl_func<H_STREAM> >& li) {
-            return li && li->func != NULL;
-        }
 
         class node
         {
@@ -180,14 +119,97 @@ namespace sodium {
 
         rank_t rankOf(const SODIUM_SHARED_PTR<node>& target);
 
+        struct applicative_state {
+            applicative_state() : fired(false) {}
+            bool fired;
+            boost::optional<light_ptr> f;
+            boost::optional<light_ptr> a;
+        };
+
         struct prioritized_entry {
-            prioritized_entry(SODIUM_SHARED_PTR<node> target_,
-                              std::function<void(transaction_impl*)> action_)
-                : target(std::move(target_)), action(std::move(action_))
+            prioritized_entry(SODIUM_SHARED_PTR<node> target_)
+                : target(std::move(target_))
             {
             }
+            virtual ~prioritized_entry() {}
+            virtual void process(transaction_impl* trans) = 0;
+
             SODIUM_SHARED_PTR<node> target;
-            std::function<void(transaction_impl*)> action;
+        };
+
+        struct coalesce_state {
+            coalesce_state() {}
+            ~coalesce_state() {}
+            boost::optional<light_ptr> oValue;
+        };
+
+        struct coalesce_entry : prioritized_entry
+        {
+            coalesce_entry(SODIUM_SHARED_PTR<node> target_,
+                           std::shared_ptr<coalesce_state> coalesce_)
+                : prioritized_entry(std::move(target_)), coalesce(std::move(coalesce_))
+            {
+            }
+            virtual void process(transaction_impl* trans);
+
+            std::shared_ptr<coalesce_state> coalesce;
+        };
+
+        struct send_entry : prioritized_entry
+        {
+            send_entry(SODIUM_SHARED_PTR<node> target_,
+                       node::target* f_,
+                       light_ptr a_)
+                : prioritized_entry(std::move(target_)), f(std::move(f_)),
+                  a(std::move(a_))
+            {
+            }
+            virtual void process(transaction_impl* trans);
+
+            node::target* f;
+            light_ptr a;
+        };
+
+        struct firing_entry : prioritized_entry
+        {
+            firing_entry(SODIUM_SHARED_PTR<node> target_,
+                         SODIUM_SHARED_PTR<holder> h_,
+                         SODIUM_FORWARD_LIST<light_ptr> firings_)
+                : prioritized_entry(std::move(target_)), h(std::move(h_)),
+                  firings(std::move(firings_))
+            {
+            }
+            virtual void process(transaction_impl* trans);
+
+            SODIUM_SHARED_PTR<holder> h;
+            SODIUM_FORWARD_LIST<light_ptr> firings;
+        };
+
+        struct switch_entry : prioritized_entry
+        {
+            switch_entry(SODIUM_SHARED_PTR<node> target_,
+                         std::shared_ptr<std::function<void()>*> pKillInner_,
+                         impl::cell_ bea_)
+                : prioritized_entry(std::move(target_)), pKillInner(std::move(pKillInner_)),
+                  bea(std::move(bea_))
+            {
+            }
+            virtual void process(transaction_impl* trans);
+
+            std::shared_ptr<std::function<void()>*> pKillInner;
+            cell_ bea;
+        };
+
+        struct apply_entry : prioritized_entry
+        {
+            apply_entry(SODIUM_SHARED_PTR<node> target_,
+                        SODIUM_SHARED_PTR<applicative_state> state_)
+                : prioritized_entry(std::move(target_)), state(std::move(state_))
+            {
+            }
+            virtual void process(transaction_impl* trans);
+
+            SODIUM_SHARED_PTR<applicative_state> state;
         };
 
         struct transaction_impl {
@@ -195,14 +217,34 @@ namespace sodium {
             ~transaction_impl();
             static partition* part;
             entryID next_entry_id;
-            std::map<entryID, prioritized_entry> entries;
+            prioritized_entry* prioritized_single;
+            std::map<entryID, prioritized_entry*> entries;
             std::multiset<std::pair<rank_t, entryID>> prioritizedQ;
             std::list<std::function<void()>> lastQ;
             bool to_regen;
             int inCallback;
 
-            void prioritized(SODIUM_SHARED_PTR<impl::node> target,
-                             std::function<void(impl::transaction_impl*)> action);
+            void prioritized(prioritized_entry* e)
+            {
+                if (entries.empty()) {
+                    if (prioritized_single == nullptr) {
+                        // Lightweight handling of common case of a single entry.
+                        prioritized_single = e;
+                        return;
+                    }
+                    // Otherwise switch to the (heavyweight) general case.
+                    entryID id = next_entry_id;
+                    next_entry_id = next_entry_id.succ();
+                    prioritizedQ.insert(std::pair<rank_t, entryID>(rankOf(prioritized_single->target), id));
+                    entries.insert(std::pair<entryID, prioritized_entry*>(id, prioritized_single));
+                    prioritized_single = nullptr;
+                }
+                // Handle general case.
+                entryID id = next_entry_id;
+                next_entry_id = next_entry_id.succ();
+                prioritizedQ.insert(std::pair<rank_t, entryID>(rankOf(e->target), id));
+                entries.insert(std::pair<entryID, prioritized_entry*>(id, e));
+            }
             void last(const std::function<void()>& action);
 
             void check_regen();
@@ -239,10 +281,9 @@ namespace sodium {
              */
             inline void close() { impl::transaction_::close(); }
 
-            void prioritized(SODIUM_SHARED_PTR<impl::node> target,
-                             std::function<void(impl::transaction_impl*)> action)
+            void prioritized(impl::prioritized_entry* e)
             {
-                impl()->prioritized(std::move(target), std::move(action));
+                impl()->prioritized(e);
             }
 
             void post(std::function<void()> f) {
