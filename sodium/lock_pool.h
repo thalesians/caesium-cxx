@@ -10,7 +10,7 @@
 #include <sodium/config.h>
 
 #ifdef __APPLE__
-#include <libkern/OSAtomic.h>
+#include <os/lock.h>
 #elif defined(__TI_COMPILER_VERSION__)
 #else
 #include <mutex>
@@ -25,14 +25,14 @@ namespace sodium {
             inline void lock() {}
             inline void unlock() {}
 #elif defined(__APPLE__)
-            OSSpinLock sl;
-            spin_lock() : sl(OS_SPINLOCK_INIT) {
+            os_unfair_lock sl;
+            spin_lock() : sl(OS_UNFAIR_LOCK_INIT) {
             }
             inline void lock() {
-                OSSpinLockLock(&sl);
+                os_unfair_lock_lock(&sl);
             }
             inline void unlock() {
-                OSSpinLockUnlock(&sl);
+                os_unfair_lock_unlock(&sl);
             }
 #elif defined(HAVE_PTHREAD_SPIN_LOCK)
             bool initialized;
