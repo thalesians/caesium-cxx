@@ -1,7 +1,12 @@
 all: test_sodium test_time memory/release-sink-machinery memory/switch-memory memory/promise-memory performance
 
 SRC=..
-CPPFLAGS=-I$(SRC) -g -Wshadow -Werror --std=c++11
+BOOST_INC := $(shell brew --prefix boost)/include
+CPPUNIT_INC := $(shell brew --prefix cppunit)/include
+CPPUNIT_LIB := $(shell brew --prefix cppunit)/lib
+CPPFLAGS=-I$(SRC) -I$(BOOST_INC) -I$(CPPUNIT_INC) -g -Wshadow -Werror -Wno-deprecated-declarations --std=c++11
+LDFLAGS=-L$(CPPUNIT_LIB)
+
 #CPPFLAGS+=-DSODIUM_SINGLE_THREADED
 #CPPFLAGS+=-DSODIUM_USE_PTHREAD_SPECIFIC
 
@@ -35,7 +40,7 @@ memory/release-sink-machinery.o: $(SODIUM_HEADERS)
 memory/switch-memory.o:          $(SODIUM_HEADERS)
 
 test_sodium: $(OBJECT_FILES) test_sodium.o
-	$(CXX) -o $@ $(OBJECT_FILES) test_sodium.o -lpthread -lcppunit
+	$(CXX) $(CPPFLAGS) -o $@ $(OBJECT_FILES) test_sodium.o $(LDFLAGS) -lpthread -lcppunit
 
 test_time: $(OBJECT_FILES) test_time.o
 	$(CXX) -o $@ $(OBJECT_FILES) test_time.o -lpthread
