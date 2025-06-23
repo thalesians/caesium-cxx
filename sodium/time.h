@@ -132,11 +132,11 @@ namespace sodium {
                 boost::optional<event<T>> current;
                 boost::optional<std::function<void()>> cancel_current;
                 boost::optional<T> tAl;
-                void do_cancel(const SODIUM_SHARED_PTR<thread_safe_priority_queue<event<T>>>& event_queue)
+                void do_cancel(const SODIUM_SHARED_PTR<thread_safe_priority_queue<event<T>>>& eq)
                 {
                     if (this->cancel_current) {
                         this->cancel_current.get()();
-                        event_queue->remove(this->current.get());
+                        eq->remove(this->current.get());
                     }
                     this->cancel_current = boost::optional<std::function<void()>>();
                     this->current = boost::optional<event<T>>();
