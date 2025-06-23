@@ -1,5 +1,7 @@
 #include <sodium/sodium.h>
 #include <sodium/router.h>
+#include <chrono>
+#include <iostream>
 
 struct Context
 {
@@ -15,6 +17,8 @@ void dump(int x)
 
 int main(int argc, char* argv[])
 {
+    auto t0 = std::chrono::high_resolution_clock::now();
+
     sodium::stream_sink<int> value;
     sodium::router<int, int> valueR(value, [] (const int& x) { return x; });
 
@@ -30,4 +34,10 @@ int main(int argc, char* argv[])
         value.send(3);
 
     l();
+
+    auto t1 = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
+    std::cout << "Performance test took " << ms << " ms\n";
+
+    return 0;
 }
