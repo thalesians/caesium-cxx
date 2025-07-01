@@ -40,12 +40,25 @@ file(
     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/include/sodium
     )
 
-include_directories( ${Boost_INCLUDE_DIR} )
+include_directories( ${Boost_INCLUDE_DIRS} )
 
 set( ALL_SOURCES ${SODIUM_INCLUDE_FILES} ${SODIUM_SOURCE_FILES} )
 
 add_library( sodium SHARED ${ALL_SOURCES} )
 add_library( libsodium STATIC ${ALL_SOURCES} )
+
+add_executable(bench_cpu benchmarks/bench.cpp)
+find_package(Threads REQUIRED)
+
+target_link_libraries(bench_cpu
+    PRIVATE libsodium Threads::Threads m     # m = libm for sin()
+)
+
+target_include_directories(bench_cpu PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/include      # sodium headers copied earlier
+)
+
+
 
 set_target_properties( libsodium PROPERTIES OUTPUT_NAME sodium )
 
