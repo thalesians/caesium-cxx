@@ -76,3 +76,10 @@ install (
     FILES ${SODIUM_INCLUDE_FILES}
     DESTINATION include/sodium
     )
+
+
+#demo: inter-partition concurrency
+add_executable(demo_inter demos/inter.cpp)
+target_link_libraries(demo_inter PRIVATE libsodium Threads::Threads)
+target_include_directories(demo_inter PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/include) 
