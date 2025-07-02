@@ -7,6 +7,7 @@
 #ifndef _SODIUM_TRANSACTION_H_
 #define _SODIUM_TRANSACTION_H_
 
+#include <sodium/concurrency/thread_pool.h>
 #include <sodium/config.h>
 #include <sodium/light_ptr.h>
 #include <sodium/sodium_base.h>
@@ -28,6 +29,8 @@ namespace sodium {
 #if !defined(SODIUM_SINGLE_THREADED)
         std::recursive_mutex mx;
 #endif
+        conc::thread_pool pool;
+
         int depth;
 
         bool processing_post;

@@ -82,7 +82,10 @@ namespace sodium {
         : depth(0),
           processing_post(false),
           processing_on_start_hooks(false),
-          shutting_down(false)
+          shutting_down(false),
+          pool(::getenv("SODIUM_THREADS")
+               ? std::max(1, std::atoi(::getenv("SODIUM_THREADS")))
+               : int(std::thread::hardware_concurrency()))
     {
 #if !defined(SODIUM_SINGLE_THREADED) && defined(SODIUM_USE_PTHREAD_SPECIFIC)
         pthread_key_create(&current_transaction_key, NULL);
@@ -306,6 +309,64 @@ namespace sodium {
             send(target, trans, f(state->a.get()));
             state->fired = false;
         }
+        //tried intra-concurrency but currently crashes, next steps look at each node
+        /*
+        void transaction_impl::process_transactional()
+        {
+            while (true) {
+                check_regen();
+
+        
+                std::vector<prioritized_entry*> batch;
+                rank_t this_rank;
+
+                // pop first entry (old logic)
+                prioritized_entry* e;
+                if (prioritized_single != nullptr) {
+                    e = prioritized_single;
+                    prioritized_single = nullptr;
+                } else {
+                    auto pit = prioritizedQ.begin();
+                    if (pit == prioritizedQ.end()) break;      
+                    auto eit = entries.find(pit->second);
+                    e   = eit->second;
+                    prioritizedQ.erase(pit);
+                    entries.erase(eit);
+                }
+                this_rank = rankOf(e->target);
+                batch.push_back(e);
+
+                // collect any more entries of the same rank
+                while (!prioritizedQ.empty() &&
+                    prioritizedQ.begin()->first == this_rank)
+                {
+                    auto pit = prioritizedQ.begin();
+                    auto eit = entries.find(pit->second);
+                    batch.push_back(eit->second);
+                    prioritizedQ.erase(pit);
+                    entries.erase(eit);
+                }
+
+
+        #ifndef SERIAL_SODIUM  // parallel path
+                for (auto* ent : batch)
+                    part->pool.submit([ent,this]{ ent->process(this); });
+                part->pool.barrier();   // wait for siblings
+        #else           // fallback: old serial behaviour
+                for (auto* ent : batch)
+                    ent->process(this);
+        #endif
+                for (auto* ent : batch)  
+                    delete ent;
+            }
+
+
+            while (!lastQ.empty()) {
+                (*lastQ.begin())();
+                lastQ.erase(lastQ.begin());
+            }
+        }
+        */
 
         void transaction_impl::process_transactional()
         {
@@ -340,7 +401,7 @@ namespace sodium {
                 lastQ.erase(lastQ.begin());
             }
         }
-
+        
         void transaction_impl::last(const std::function<void()>& action)
         {
             lastQ.push_back(action);
