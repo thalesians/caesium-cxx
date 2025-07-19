@@ -5,7 +5,11 @@
  * C++ implementation courtesy of International Telematics Ltd.
  */
 #include <sodium/sodium.h>
-#include <runtime/dag.h>                      
+#include <runtime/dag.h>     
+#include <map>
+#include <iostream>    // for std::cerr
+#include <cassert>       
+           
 using caesium::runtime::Graph;
 using caesium::runtime::Node;
 using caesium::runtime::init_pending;
@@ -371,74 +375,67 @@ namespace sodium {
             }
         }
         */
+        
+        // In transaction_impl (transaction.cpp)
+
+        void transaction_impl::last(const std::function<void()>& action)
+        {
+            // Enqueue post‐transaction hooks in the partition (thread‐safe)
+            part->post(action);
+        }
 
         void transaction_impl::process_transactional()
         {
-            //building nodes for each pending entry
-            Graph dag;
-            dag.reserve(entries.size() + (prioritized_single ? 1 : 0));
+            //Read thread count once
+            int n_threads = getenv("SODIUM_THREADS")
+                ? std::max(1, std::atoi(getenv("SODIUM_THREADS")))
+                : int(std::thread::hardware_concurrency());
 
-            //helper to wrap an entry into a Node
-            auto make_node = [&](prioritized_entry* ent) {
-                auto n = std::make_unique<Node>();
-                n->id = dag.size();
-                n->work = [ent, this]() {
-                    ent->process(this);
-                    delete ent;
-                };
-                return n;
-            };
-
-            if (prioritized_single) {
-                dag.push_back(make_node(prioritized_single));
-                prioritized_single = nullptr;
-            }
-            for (auto& kv : entries) {
-                dag.push_back(make_node(kv.second));
-            }
-            entries.clear();
-            prioritizedQ.clear();
-
-            //TODO: populate dag[i]->succ edges based on entry dependencies
-
-            //Initialize in-degree counters
-            init_pending(dag);
-
-            //Process ready nodes in ID order
-            std::deque<Node*> ready;
-            for (auto& np : dag) {
-                if (np->pending.load(std::memory_order_acquire) == 0)
-                    ready.push_back(np.get());
-            }
-
-            while (!ready.empty()) {
-                std::sort(ready.begin(), ready.end(),
-                        [](Node* a, Node* b){ return a->id < b->id; });
-                Node* cur = ready.front();
-                ready.pop_front();
-
-
-                part->pool.submit(cur->work);
-                part->pool.barrier();
-
-                for (auto* s : cur->succ) {
-                    if (s->pending.fetch_sub(1, std::memory_order_acq_rel) == 1)
-                        ready.push_back(s);
+            //If single-threaded, run the untouched original Sodium 
+            if (n_threads <= 1) {
+                while (true) {
+                    check_regen();
+                    prioritized_entry* e;
+                    // Lightweight case of a single entry.
+                    if (prioritized_single != nullptr) {
+                        e = prioritized_single;
+                        prioritized_single = nullptr;
+                    }
+                    else {
+                        auto pit = prioritizedQ.begin();
+                        if (pit == prioritizedQ.end()) break;
+                        auto eit = entries.find(pit->second);
+                        assert(eit != entries.end());
+                        e = eit->second;
+                        prioritizedQ.erase(pit);
+                        entries.erase(eit);
+                    }
+                    try {
+                        e->process(this);
+                        delete e;
+                    }
+                    catch (...) {
+                        delete e;
+                        throw;
+                    }
                 }
+        
+                while (!lastQ.empty()) {
+                    (*lastQ.begin())();
+                    lastQ.erase(lastQ.begin());
+                }
+                return;
             }
 
-            //Process any remaining post-actions, check
-            while (!lastQ.empty()) {
-                (*lastQ.begin())();
-                lastQ.erase(lastQ.begin());
-            }
-        }
+            // 2) Parallel path placeholder – I'll fill this in next
         
-        
-        void transaction_impl::last(const std::function<void()>& action)
-        {
-            lastQ.push_back(action);
         }
+
+
+
+
+
+
 
         transaction_::transaction_()
         {
