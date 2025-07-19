@@ -417,6 +417,7 @@ namespace sodium {
                 Node* cur = ready.front();
                 ready.pop_front();
 
+
                 part->pool.submit(cur->work);
                 part->pool.barrier();
 
@@ -426,13 +427,12 @@ namespace sodium {
                 }
             }
 
-            //Process any remaining post-actions
+            //Process any remaining post-actions, check
             while (!lastQ.empty()) {
                 (*lastQ.begin())();
                 lastQ.erase(lastQ.begin());
             }
         }
-
         
         
         void transaction_impl::last(const std::function<void()>& action)
