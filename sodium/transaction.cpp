@@ -5,6 +5,10 @@
  * C++ implementation courtesy of International Telematics Ltd.
  */
 #include <sodium/sodium.h>
+#include <runtime/dag.h>                      
+using caesium::runtime::Graph;
+using caesium::runtime::Node;
+using caesium::runtime::init_pending;
 #if !defined(SODIUM_SINGLE_THREADED) && defined(SODIUM_USE_PTHREAD_SPECIFIC)
 #include <pthread.h>
 #endif
@@ -370,37 +374,66 @@ namespace sodium {
 
         void transaction_impl::process_transactional()
         {
-            while (true) {
-                check_regen();
-                prioritized_entry* e;
-                // Lightweight case of a single entry.
-                if (prioritized_single != nullptr) {
-                    e = prioritized_single;
-                    prioritized_single = nullptr;
-                }
-                else {
-                    std::multiset<pair<rank_t, entryID>>::iterator pit = prioritizedQ.begin();
-                    if (pit == prioritizedQ.end()) break;
-                    std::map<entryID, prioritized_entry*>::iterator eit = entries.find(pit->second);
-                    assert(eit != entries.end());
-                    e = eit->second;
-                    prioritizedQ.erase(pit);
-                    entries.erase(eit);
-                }
-                try {
-                    e->process(this);
-                    delete e;
-                }
-                catch (...) {
-                    delete e;
-                    throw;
+            //building nodes for each pending entry
+            Graph dag;
+            dag.reserve(entries.size() + (prioritized_single ? 1 : 0));
+
+            //helper to wrap an entry into a Node
+            auto make_node = [&](prioritized_entry* ent) {
+                auto n = std::make_unique<Node>();
+                n->id = dag.size();
+                n->work = [ent, this]() {
+                    ent->process(this);
+                    delete ent;
+                };
+                return n;
+            };
+
+            if (prioritized_single) {
+                dag.push_back(make_node(prioritized_single));
+                prioritized_single = nullptr;
+            }
+            for (auto& kv : entries) {
+                dag.push_back(make_node(kv.second));
+            }
+            entries.clear();
+            prioritizedQ.clear();
+
+            //TODO: populate dag[i]->succ edges based on entry dependencies
+
+            //Initialize in-degree counters
+            init_pending(dag);
+
+            //Process ready nodes in ID order
+            std::deque<Node*> ready;
+            for (auto& np : dag) {
+                if (np->pending.load(std::memory_order_acquire) == 0)
+                    ready.push_back(np.get());
+            }
+
+            while (!ready.empty()) {
+                std::sort(ready.begin(), ready.end(),
+                        [](Node* a, Node* b){ return a->id < b->id; });
+                Node* cur = ready.front();
+                ready.pop_front();
+
+                part->pool.submit(cur->work);
+                part->pool.barrier();
+
+                for (auto* s : cur->succ) {
+                    if (s->pending.fetch_sub(1, std::memory_order_acq_rel) == 1)
+                        ready.push_back(s);
                 }
             }
-            while (lastQ.begin() != lastQ.end()) {
+
+            //Process any remaining post-actions
+            while (!lastQ.empty()) {
                 (*lastQ.begin())();
                 lastQ.erase(lastQ.begin());
             }
         }
+
+        
         
         void transaction_impl::last(const std::function<void()>& action)
         {
