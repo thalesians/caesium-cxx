@@ -3,6 +3,8 @@ cmake_minimum_required( VERSION 3.5 )
 set( CMAKE_INSTALL_PREFIX /usr/local )
 
 project(sodium)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 include(CheckCXXCompilerFlag)
 
 check_cxx_compiler_flag("-std=c++11" SUPPORTS_CXX11)
