@@ -9,7 +9,8 @@
 #include <map>
 #include <iostream>    // for std::cerr
 #include <cassert>       
-           
+#include <vector>
+
 using caesium::runtime::Graph;
 using caesium::runtime::Node;
 using caesium::runtime::init_pending;
@@ -32,6 +33,7 @@ namespace sodium {
 
     namespace impl {
 
+        std::vector<size_t> transaction_impl::all_txn_sizes;
         partition* transaction_impl::part;
 
         void intrusive_ptr_add_ref(sodium::impl::listen_impl_func<sodium::impl::H_STREAM>* p)
@@ -87,13 +89,15 @@ namespace sodium {
     }
 
     partition::partition()
-        : depth(0),
+        : n_threads(::getenv("SODIUM_THREADS")
+                       ? std::max(1, std::atoi(::getenv("SODIUM_THREADS")))
+                       : int(std::thread::hardware_concurrency())),
+          depth(0),
           processing_post(false),
           processing_on_start_hooks(false),
           shutting_down(false),
-          pool(::getenv("SODIUM_THREADS")
-               ? std::max(1, std::atoi(::getenv("SODIUM_THREADS")))
-               : int(std::thread::hardware_concurrency()))
+          pool(n_threads)
+
     {
 #if !defined(SODIUM_SINGLE_THREADED) && defined(SODIUM_USE_PTHREAD_SPECIFIC)
         pthread_key_create(&current_transaction_key, NULL);
@@ -280,13 +284,17 @@ namespace sodium {
         {
         }
         
-        void coalesce_entry::process(transaction_impl* trans)
+        void coalesce_entry::process(transaction_impl* trans,
+                          std::vector<prioritized_entry*>& out_single,
+                          std::vector<prioritized_entry*>& out_queued)
         {
             send(target, trans, coalesce->oValue.get());
             coalesce->oValue = boost::optional<light_ptr>();
         }
 
-        void send_entry::process(transaction_impl* trans)
+        void send_entry::process(transaction_impl* trans,
+                         std::vector<prioritized_entry*>& out_single,
+                          std::vector<prioritized_entry*>& out_queued)
         {
             trans->inCallback++;
             try {
@@ -299,19 +307,25 @@ namespace sodium {
             }
         }
 
-        void firing_entry::process(transaction_impl* trans)
+        void firing_entry::process(transaction_impl* trans,
+                          std::vector<prioritized_entry*>& out_single,
+                         std::vector<prioritized_entry*>& out_queued)
         {
             for (SODIUM_FORWARD_LIST<light_ptr>::const_iterator it = firings.begin(); it != firings.end(); it++)
                 h->handle(target, trans, *it);
         }
 
-        void switch_entry::process(transaction_impl* trans)
+        void switch_entry::process(transaction_impl* trans,
+                         std::vector<prioritized_entry*>& out_single,
+                         std::vector<prioritized_entry*>& out_queued)
         {
             if (*pKillInner == NULL)
                 *pKillInner = bea.impl->sample().cast_ptr<stream_>(NULL)->listen_raw(trans, target, false);
         }
 
-        void apply_entry::process(transaction_impl* trans)
+        void apply_entry::process(transaction_impl* trans,
+                         std::vector<prioritized_entry*>& out_single,
+                          std::vector<prioritized_entry*>& out_queued)
         {
             auto f = *state->f.get().cast_ptr<std::function<light_ptr(const light_ptr&)>>(NULL);
             send(target, trans, f(state->a.get()));
@@ -384,52 +398,102 @@ namespace sodium {
             part->post(action);
         }
 
-        void transaction_impl::process_transactional()
-        {
-            //Read thread count once
-            int n_threads = getenv("SODIUM_THREADS")
-                ? std::max(1, std::atoi(getenv("SODIUM_THREADS")))
-                : int(std::thread::hardware_concurrency());
+        void transaction_impl::process_transactional() {
+        //records how many entries this transaction will process
+        all_txn_sizes.push_back((prioritized_single ? 1 : 0) + entries.size());
 
-            //If single-threaded, run the untouched original Sodium 
-            if (n_threads <= 1) {
-                while (true) {
-                    check_regen();
-                    prioritized_entry* e;
-                    // Lightweight case of a single entry.
-                    if (prioritized_single != nullptr) {
-                        e = prioritized_single;
-                        prioritized_single = nullptr;
+        std::vector<prioritized_entry*> dummy_single, dummy_queued;
+
+        //Rank‐batch scheduler (serial or parallel)
+        while (prioritized_single || !prioritizedQ.empty()) {
+            check_regen();
+
+            //bail out if no work remains
+            if (!prioritized_single && prioritizedQ.empty())
+                break;
+
+            //find the current lowest rank
+            rank_t current_rank = std::numeric_limits<rank_t>::max();
+            if (prioritized_single)
+                current_rank = std::min(current_rank, rankOf(prioritized_single->target));
+            if (!prioritizedQ.empty())
+                current_rank = std::min(current_rank, prioritizedQ.begin()->first);
+
+            //collect the full batch at that rank
+            std::vector<prioritized_entry*> batch;
+            if (prioritized_single && rankOf(prioritized_single->target) == current_rank) {
+                batch.push_back(prioritized_single);
+                prioritized_single = nullptr;
+            }
+            while (!prioritizedQ.empty() && prioritizedQ.begin()->first == current_rank) {
+                auto pit = prioritizedQ.begin();
+                auto eit = entries.find(pit->second);
+                batch.push_back(eit->second);
+                entries.erase(eit);
+                prioritizedQ.erase(pit);
+            }
+            assert(!batch.empty());
+
+            //process this batch, in parallel if >1 worker & >1 entry
+            int n_threads = part->n_threads;
+            if (n_threads > 1 && batch.size() > 1) {
+                std::vector<std::vector<prioritized_entry*>> stage_single(n_threads),
+                                                stage_queued(n_threads);
+                std::atomic<size_t> next_idx{0};
+
+                auto worker = [&](size_t tid) {
+                    size_t i;
+                    while ((i = next_idx.fetch_add(1, std::memory_order_relaxed)) < batch.size()) {
+                        batch[i]->process(this, stage_single[tid], stage_queued[tid]);
                     }
-                    else {
-                        auto pit = prioritizedQ.begin();
-                        if (pit == prioritizedQ.end()) break;
-                        auto eit = entries.find(pit->second);
-                        assert(eit != entries.end());
-                        e = eit->second;
-                        prioritizedQ.erase(pit);
-                        entries.erase(eit);
+                };
+
+                for (int w = 0; w < n_threads; ++w) {
+                    part->pool.submit([w,&worker]{ worker(w); });
+                }
+                part->pool.barrier();
+
+                for (int tid = 0; tid < n_threads; ++tid) {
+                    for (auto* e : stage_single[tid]) {
+                        if (!prioritized_single)
+                            prioritized_single = e;
+                        else {
+                            entries[next_entry_id] = e;
+                            prioritizedQ.insert({rankOf(e->target), next_entry_id});
+                            next_entry_id = next_entry_id.succ();
+                        }
                     }
-                    try {
-                        e->process(this);
-                        delete e;
-                    }
-                    catch (...) {
-                        delete e;
-                        throw;
+                    for (auto* e : stage_queued[tid]) {
+                        entries[next_entry_id] = e;
+                        prioritizedQ.insert({rankOf(e->target), next_entry_id});
+                        next_entry_id = next_entry_id.succ();
                     }
                 }
-        
-                while (!lastQ.empty()) {
-                    (*lastQ.begin())();
-                    lastQ.erase(lastQ.begin());
+            } else {
+                for (auto* ent : batch) {
+                    ent->process(this, dummy_single, dummy_queued);
                 }
-                return;
             }
 
-            // 2) Parallel path placeholder – I'll fill this in next
-        
+            //clean up processed entries
+            for (auto* ent : batch) {
+                delete ent;
+            }
         }
+
+        //run any post‐transaction hooks
+        while (!lastQ.empty()) {
+            (*lastQ.begin())();
+            lastQ.erase(lastQ.begin());
+        }
+    }
+
+
+
+
+
+
+
 
 
 

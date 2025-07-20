@@ -20,6 +20,8 @@
 #include <memory>
 #include <mutex>
 #include <tuple>
+#include <vector>
+#include <algorithm>
 
 namespace sodium {
 
@@ -29,6 +31,7 @@ namespace sodium {
 #if !defined(SODIUM_SINGLE_THREADED)
         std::recursive_mutex mx;
 #endif
+        int n_threads; //number of wokrer threads
         conc::thread_pool pool;
 
         int depth;
@@ -135,7 +138,9 @@ namespace sodium {
             {
             }
             virtual ~prioritized_entry() {}
-            virtual void process(transaction_impl* trans) = 0;
+            virtual void process(transaction_impl* trans,
+                                 std::vector<prioritized_entry*>& out_single,
+                                 std::vector<prioritized_entry*>& out_queued) = 0;
 
             SODIUM_SHARED_PTR<node> target;
         };
@@ -153,7 +158,9 @@ namespace sodium {
                 : prioritized_entry(std::move(target_)), coalesce(std::move(coalesce_))
             {
             }
-            virtual void process(transaction_impl* trans);
+            virtual void process(transaction_impl* trans,
+                                 std::vector<prioritized_entry*>& out_single,
+                                 std::vector<prioritized_entry*>& out_queued);
 
             std::shared_ptr<coalesce_state> coalesce;
         };
@@ -167,7 +174,9 @@ namespace sodium {
                   a(std::move(a_))
             {
             }
-            virtual void process(transaction_impl* trans);
+            virtual void process(transaction_impl* trans,
+                                std::vector<prioritized_entry*>& out_single,
+                                std::vector<prioritized_entry*>& out_queued);
 
             node::target* f;
             light_ptr a;
@@ -182,7 +191,9 @@ namespace sodium {
                   firings(std::move(firings_))
             {
             }
-            virtual void process(transaction_impl* trans);
+            virtual void process(transaction_impl* trans,
+                                 std::vector<prioritized_entry*>& out_single,
+                                std::vector<prioritized_entry*>& out_queued);
 
             SODIUM_SHARED_PTR<holder> h;
             SODIUM_FORWARD_LIST<light_ptr> firings;
@@ -197,7 +208,9 @@ namespace sodium {
                   bea(std::move(bea_))
             {
             }
-            virtual void process(transaction_impl* trans);
+            virtual void process(transaction_impl* trans,
+                                std::vector<prioritized_entry*>& out_single,
+                                 std::vector<prioritized_entry*>& out_queued);
 
             std::shared_ptr<std::function<void()>*> pKillInner;
             cell_ bea;
@@ -210,12 +223,15 @@ namespace sodium {
                 : prioritized_entry(std::move(target_)), state(std::move(state_))
             {
             }
-            virtual void process(transaction_impl* trans);
+            virtual void process(transaction_impl* trans,
+                                 std::vector<prioritized_entry*>& out_single,
+                                 std::vector<prioritized_entry*>& out_queued);
 
             SODIUM_SHARED_PTR<applicative_state> state;
         };
 
         struct transaction_impl {
+            static std::vector<size_t> all_txn_sizes;
             transaction_impl();
             ~transaction_impl();
             static partition* part;
