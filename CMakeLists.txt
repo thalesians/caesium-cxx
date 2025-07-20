@@ -5,6 +5,10 @@ set( CMAKE_INSTALL_PREFIX /usr/local )
 project(sodium)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fsanitize=address -g -O1")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
+
 include(CheckCXXCompilerFlag)
 
 check_cxx_compiler_flag("-std=c++11" SUPPORTS_CXX11)
