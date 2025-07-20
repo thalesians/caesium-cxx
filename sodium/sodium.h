@@ -8,6 +8,7 @@
 #define _SODIUM_SODIUM_H_
 
 #include <sodium/transaction.h>
+#include <mutex>
 
 #ifdef WIN32
 // maybe replace this with c++14 attributes..
@@ -34,16 +35,26 @@ namespace sodium {
               combine(std::move(combine_))
             {
             }
+            mutable std::mutex mtx;
             SODIUM_SHARED_PTR<coalesce_state> pState;
             F combine;
-            virtual void handle(const SODIUM_SHARED_PTR<node>& target, transaction_impl* trans, const light_ptr& a)
+            virtual void handle(const SODIUM_SHARED_PTR<node>& target,transaction_impl* trans,const light_ptr& a)
             {
-                if (!pState->oValue) {
-                    pState->oValue = boost::optional<light_ptr>(a);
+                bool first = false;
+                {
+                    std::lock_guard<std::mutex> lk(pState->mtx);
+                    if (!pState->oValue) {
+                        pState->oValue = boost::optional<light_ptr>(a);
+                        first = true;
+                    }
+                    else {
+                        auto nxt = detype2<A,A,F>(combine,pState->oValue.get(),a);
+                        pState->oValue = std::move(nxt);
+                    }
+                }
+                if (first) {
                     trans->prioritized(new impl::coalesce_entry(target, pState));
                 }
-                else
-                    pState->oValue = boost::make_optional(detype2<A,A,F>(combine, pState->oValue.get(), a));
             }
         };
 
@@ -67,14 +78,23 @@ namespace sodium {
             {
             }
             SODIUM_SHARED_PTR<coalesce_state> pState;
-            virtual void handle(const SODIUM_SHARED_PTR<node>& target, transaction_impl* trans, const light_ptr& a)
+            virtual void handle(const SODIUM_SHARED_PTR<node>& target,transaction_impl* trans, const light_ptr& a)
             {
-                if (!pState->oValue) {
-                    pState->oValue = boost::optional<light_ptr>(a);
+                bool first = false;
+                {
+                    std::lock_guard<std::mutex> lk(pState->mtx);
+                    if (!pState->oValue) {
+                        pState->oValue = boost::optional<light_ptr>(a);
+                        first = true;
+                    }
+                    else {
+                        // just overwrite with the last firing
+                        pState->oValue = a;
+                    }
+                }
+                if (first) {
                     trans->prioritized(new impl::coalesce_entry(target, pState));
                 }
-                else
-                    pState->oValue = boost::make_optional(a);
             }
         };
 
