@@ -148,7 +148,7 @@ namespace sodium {
         struct coalesce_state {
             coalesce_state() = default;
             ~coalesce_state() = default;
-            std::mutex mtx;
+            mutable std::mutex merge_mu;
             boost::optional<light_ptr> oValue;
         
         };
@@ -237,6 +237,11 @@ namespace sodium {
             transaction_impl();
             ~transaction_impl();
             static partition* part;
+            std::mutex queue_mu;
+            std::condition_variable queue_cv;
+            std::deque<prioritized_entry*> queue;
+            std::vector<std::thread> workers;
+            bool finished=false;
             entryID next_entry_id;
             prioritized_entry* prioritized_single;
             std::map<entryID, prioritized_entry*> entries;
@@ -244,28 +249,19 @@ namespace sodium {
             std::list<std::function<void()>> lastQ;
             bool to_regen;
             int inCallback;
+            std::mutex mu;
+            mutable std::mutex merge_mu;
 
             void prioritized(prioritized_entry* e)
             {
-                if (entries.empty()) {
-                    if (prioritized_single == nullptr) {
-                        // Lightweight handling of common case of a single entry.
-                        prioritized_single = e;
-                        return;
-                    }
-                    // Otherwise switch to the (heavyweight) general case.
-                    entryID id = next_entry_id;
-                    next_entry_id = next_entry_id.succ();
-                    prioritizedQ.insert(std::pair<rank_t, entryID>(rankOf(prioritized_single->target), id));
-                    entries.insert(std::pair<entryID, prioritized_entry*>(id, prioritized_single));
-                    prioritized_single = nullptr;
+                //eneque the new work item
+                {
+                    std::lock_guard<std::mutex> lk(queue_mu);
+                    queue.push_back(e);
                 }
-                // Handle general case.
-                entryID id = next_entry_id;
-                next_entry_id = next_entry_id.succ();
-                prioritizedQ.insert(std::pair<rank_t, entryID>(rankOf(e->target), id));
-                entries.insert(std::pair<entryID, prioritized_entry*>(id, e));
+                queue_cv.notify_one();
             }
+
             void last(const std::function<void()>& action);
 
             void check_regen();

@@ -35,14 +35,14 @@ namespace sodium {
               combine(std::move(combine_))
             {
             }
-            mutable std::mutex mtx;
+
             SODIUM_SHARED_PTR<coalesce_state> pState;
             F combine;
             virtual void handle(const SODIUM_SHARED_PTR<node>& target,transaction_impl* trans,const light_ptr& a)
             {
                 bool first = false;
                 {
-                    std::lock_guard<std::mutex> lk(pState->mtx);
+                    std::lock_guard<std::mutex> lk(pState->merge_mu);
                     if (!pState->oValue) {
                         pState->oValue = boost::optional<light_ptr>(a);
                         first = true;
@@ -82,7 +82,7 @@ namespace sodium {
             {
                 bool first = false;
                 {
-                    std::lock_guard<std::mutex> lk(pState->mtx);
+                    std::lock_guard<std::mutex> lk(pState->merge_mu);
                     if (!pState->oValue) {
                         pState->oValue = boost::optional<light_ptr>(a);
                         first = true;
