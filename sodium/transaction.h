@@ -146,9 +146,11 @@ namespace sodium {
         };
 
         struct coalesce_state {
-            coalesce_state() {}
-            ~coalesce_state() {}
+            coalesce_state() = default;
+            ~coalesce_state() = default;
+            std::mutex mtx;
             boost::optional<light_ptr> oValue;
+        
         };
 
         struct coalesce_entry : prioritized_entry
