@@ -363,6 +363,7 @@ namespace sodium {
                  }
                  entries.clear();
                  prioritizedQ.clear();
+                 finished=false;
              }
 
 
@@ -371,19 +372,30 @@ namespace sodium {
                 workers.emplace_back([this] {
                     while (true) {
                         prioritized_entry* ent = nullptr;
+                        std::vector<prioritized_entry*>dummy_single,dummy_queued;
                         {
                             std::unique_lock<std::mutex> lk(queue_mu);
-                            //wake up on new work or finished==true
+                            //wake up on new work or if finished==true
                             queue_cv.wait(lk, [&]{ return !queue.empty() || finished; });
                             if (queue.empty() && finished) 
                                 break;
                             ent = queue.front();
                             queue.pop_front();
                         }
-                        //process outside lock, with real dummy vectors:
-                        std::vector<prioritized_entry*> dummy_single, dummy_queued;
+                        //process outside lok, with real dummy vectors
                         ent->process(this, dummy_single, dummy_queued);
                         delete ent;
+
+                        {
+                            std::lock_guard<std::mutex>lk(queue_mu);
+                             for(auto* e2:dummy_single){
+                                queue.push_front(e2);
+                            }
+                            for(auto* e2:dummy_queued){
+                                queue.push_back(e2);
+                            }
+                        }
+                        queue_cv.notify_all();
                     }
                 });
             }
@@ -401,24 +413,12 @@ namespace sodium {
             }
             workers.clear();
 
-            //finally, run any post‐transaction hooks
+            //run any post‐transaction hooks
             while (!lastQ.empty()) {
                 lastQ.front()();
                 lastQ.pop_front();
             }
         }
-
-
-
-    
-
-
-
-
-
-
-
-
 
 
 
@@ -507,7 +507,7 @@ namespace sodium {
                 else
                     part->depth--;
             }
-        }
+        } ////
     };  // end namespace impl
 
 };  // end namespace sodium

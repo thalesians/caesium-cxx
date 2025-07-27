@@ -1,31 +1,30 @@
-Sodium - Functional Reactive Programming (FRP) library for multiple languages
-C++ version
+To run concurrently:
 
-See central 'sodium' repository for more information
+Current program exposes intra transactional concurrency.
 
-Buy the book "Functional Reactive Programming" at
-  https://www.manning.com/books/functional-reactive-programming
+CMake >= 3.5
+C++11 compatible compiler
 
-Drop by our blog at 
-  http://reactiveprogramming.org/
+Build instructions:
 
-BUILDING SODIUM
-===============
+mkdir -p build
+cd build
+cmake ..
+make intra_transac
 
-To build (from v1 subdirectory):
+//single thread
+SODIUM_THREADS=1 ./intra_transac
 
-    mkdir build
-    cd build
-    cmake ..
-    make
-    make install
+//To loop through
+for t in 1 2 4 6 8; do
+  echo "Threads=$t"
+  SODIUM_THREADS=$t ./intra_transac
+done
 
-By default, the install is to prefix /usr/local.
+*Threads active -> how many worker threads actually processed tasks
+*Total tasks run_> should be equal to the number of listeners 
 
-Of course, you can use any generator you want. This has been tested with Unix Makefiles and Xcode
+Customise in benchmarks/intra_transac.cpp
 
-e.g., use
-
-    cmake -G'Xcode' ..
-
-To generate an Xcode project
+*M -> number of listeners. Change the M to change how many listener callbacks fire per src.send()
+*Task weight(busy()) _> can change the loop count instead busy() function, this increases or decreases per-task CPU work
