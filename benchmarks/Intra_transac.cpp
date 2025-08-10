@@ -3,6 +3,11 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <atomic>
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <limits>
 
 //busy() 
 static void busy() {
@@ -21,35 +26,43 @@ int main() {
 
     // per-thread counters
     std::vector<std::atomic<size_t>> counts(T);
+    for(auto& c: counts) c.store(0,std::memory_order_relaxed);
     
     //one shared source
     sodium::stream_sink<int> src;
 
+    static std::atomic<size_t> next_idx{0};
+
     // install M listeners: each will run busy() and bump its thread's counter
     for(int i = 0; i < M; ++i) {
-        src.listen([&](int){
+        src.listen([&,T](int){
+            thread_local size_t idx= std::numeric_limits<size_t>::max();
+            if(idx== std::numeric_limits<size_t>::max()){
+                size_t k=next_idx.fetch_add(1,std::memory_order_relaxed);
+                idx=k%static_cast<size_t>(T);
+            }
             busy();
-            auto id = std::this_thread::get_id();
-            size_t idx = std::hash<std::thread::id>{}(id) % T;
-            counts[idx].fetch_add(1, std::memory_order_relaxed);
+            counts[idx].fetch_add(1,std::memory_order_relaxed);
         });
     }
 
-    //fire exactly one event in a single transaction
-    auto t0 = std::chrono::high_resolution_clock::now();
+    using clock=std::chrono::steady_clock;
+    auto t0 = clock::now();
+
     {
         sodium::transaction txn;
         src.send(42);
     }  //on close, T threads will race on M tasks
 
-    double ms= std::chrono::duration<double,std::milli>(std::chrono::high_resolution_clock::now() - t0).count();
+    double ms= std::chrono::duration<double,std::milli>(clock::now() - t0).count();
     double ev_s = M / (ms/1000.0);
 
     //how many tasks each thread got
     size_t total = 0, active=0;
-    for(size_t c : counts) {
-        if(c>0) ++active;
-        total += c;
+    for(auto& c : counts) {
+        size_t v = c.load(std::memory_order_relaxed);
+        if(v>0) ++active;
+        total += v;
     }
 
     std::cout
@@ -57,6 +70,11 @@ int main() {
       << "Total tasks run: " << total  << "\n"
       << "Elapsed: " << ms << " ms\n"
       << "Throughput:" << ev_s << " every secondd\n";
+
+    if(total != static_cast<size_t>(M)){
+        std::cerr << "Mismatch,expected " <<M<< " number of tasks but saw "<<total<< "\n";
+        return 2;
+    }
 
     if(active < 2) {
         std::cerr << "No intra‐transact concurrency\n";
